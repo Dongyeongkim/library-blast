@@ -61,6 +61,10 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:
   background:var(--panel);color:var(--ink);border:1px solid var(--line);font-size:14px;padding:10px 14px;backdrop-filter:blur(4px)}
 @media (max-width:720px){.hint{bottom:calc(70px + env(safe-area-inset-bottom,0px))}}
 #flash{position:fixed;inset:0;background:#fff2dc;opacity:0;pointer-events:none}
+#fever{position:fixed;inset:0;pointer-events:none;box-shadow:inset 0 0 140px 30px rgba(255,40,30,.55);animation:fev .45s ease-in-out infinite alternate}
+#fever span{position:absolute;left:50%;top:calc(170px + env(safe-area-inset-top,0px));transform:translateX(-50%);font-weight:800;font-size:22px;color:#fff;background:rgba(220,30,20,.85);padding:4px 14px;border-radius:999px;letter-spacing:.02em}
+#fever[hidden]{display:none}
+@keyframes fev{from{box-shadow:inset 0 0 110px 20px rgba(255,40,30,.4)}to{box-shadow:inset 0 0 170px 40px rgba(255,40,30,.7)}}
 .overlay{position:fixed;inset:0;display:grid;place-items:center;background:rgba(5,8,18,.45);padding:16px;overflow:auto}
 .dialog{width:100%;max-width:500px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:14px;backdrop-filter:blur(8px)}
 h1,h2{font-family:var(--display);font-weight:400;margin:0;line-height:1.05;text-wrap:balance}
@@ -91,11 +95,13 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
 <body>
 <canvas id="cv"></canvas>
 <div id="flash"></div>
+<div id="fever" hidden><span>피버! 더 크게 부서집니다</span></div>
 
 <div class="hud">
   <div class="card">
-    <div class="row"><span class="lab">내 목소리 크기</span><span class="sub" id="lvTxt">조용함</span></div>
-    <div class="bar"><i id="lvBar"></i><b style="left:22%"></b></div>
+    <div class="row"><span class="lab">내 함성</span><span class="sub" id="lvTxt">조용함</span></div>
+    <div class="row"><span class="val" id="dbTxt">— dB</span><span class="sub" id="dbPeak">최고 —</span></div>
+    <div class="bar"><i id="lvBar"></i><b style="left:50%"></b></div>
   </div>
   <div class="card">
     <div class="row"><span class="lab" id="hzLab">내 음 / 건물 고유진동수</span></div>
@@ -163,6 +169,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
     <div class="btns">
       <button id="againBtn">다시 세우기</button>
       <button id="pickBtn" class="second">다른 학교 고르기</button>
+      <button id="shotBtn" class="second">결과 이미지 저장</button>
     </div>
   </div>
 </div>
@@ -592,6 +599,7 @@ function buildSite(){
 const S = { mode:'scream', stage:'idle', clock:-10, sync:0, I:100, A:0, phase:0, f0:200, lv:0, hz:0, noHz:1,
   elapsed:0, resT:0, peak:0, maxFollow:0, shake:0, flash:0, match:0, cents:null, drive:0, ended:false };
 const active = () => !S.ended && S.stage === 'scream';
+const GATE = 0.5, CANNON_GATE = 0.66;   // 마이크 문턱(0~1, 약 -32dBFS)과 대포 명중 문턱
 
 /* ================= 조각 체계 ================= */
 const building = new THREE.Group(); scene.add(building);
@@ -1301,7 +1309,7 @@ function jumpStep(dt){
 function reset(){
   buildLibrary(); shards.clear(); books.clear();
   for (const d of dusts){ d.max = 0; d.sp.visible = false; }
-  Object.assign(S, { ended:false, I:100, A:0, elapsed:0, resT:0, peak:0, maxFollow:0, shake:0, flash:0, sync:0, clock:-10, f0: Math.round(rnd(165, 245)), nj: 0, samp: [], songT0: -99, hzBuf: [], hits: 0, total: 0, lastHit: -9, loop: 0, hitSet: new Set(), trail: [], ci: 0, cpk: 0, fwT: 0, cres: [] });
+  Object.assign(S, { ended:false, I:100, A:0, elapsed:0, resT:0, peak:0, maxFollow:0, shake:0, flash:0, sync:0, clock:-10, f0: Math.round(rnd(165, 245)), nj: 0, samp: [], songT0: -99, hzBuf: [], hits: 0, total: 0, lastHit: -9, loop: 0, hitSet: new Set(), trail: [], ci: 0, cpk: 0, fwT: 0, cres: [], fevT: 0, fevGrace: 0, fever: false, fevTotal: 0, peakDb: 0, slowmo: 0 });
   FW.clear();
   M.floor.emissiveIntensity = 0.3; M.shelf.emissiveIntensity = 0.4; M.ceil.emissiveIntensity = 0.55;
   boomLight.intensity = 0;
@@ -1464,7 +1472,7 @@ function cannonHit(hit){
   S.total++;
   S.shake = Math.max(S.shake, hit ? 1.3 : 0.45); boomLight.position.copy(BC); boomLight.intensity = Math.max(boomLight.intensity, hit ? 2500 : 700);
   if (!hit || S.ended) return;
-  S.hits++; S.lastHit = simT; S.flash = Math.max(S.flash, 0.3); S.A = Math.min(1.4, S.A + 0.25); S.I -= 6;
+  S.hits++; S.lastHit = simT; S.flash = Math.max(S.flash, 0.3); S.A = Math.min(1.4, S.A + 0.25); S.I -= S.fever ? 7.5 : 6;
   const c = pieces.filter(p => p.glass && !p.shattered && alive(p));
   for (let k=0; k<6 && c.length; k++){ const pc = c.splice(Math.floor(Math.random()*c.length), 1)[0]; pc.crack = 1; pc.glass.material = pc.crackMat; shatter(pc); }
   FW.sky(1);
@@ -1569,7 +1577,7 @@ function checkSupport(dt){
   }
 }
 function explode(){
-  S.ended = true; S.I = 0; S.flash = 1; S.shake = 2.2; stopGuide();
+  S.ended = true; S.I = 0; S.flash = 1; S.shake = 2.2; stopGuide(); S.slowmo = 1.5; S.fever = false;
   for (const pc of pieces) if (pc.state === 'fix'){
     detach(pc);
     const d = tv.copy(pc.obj.position).sub(BC); const dist = Math.max(4, d.length()); d.normalize();
@@ -1627,7 +1635,7 @@ function readVoice(){
   analyser.getFloatTimeDomainData(tbuf);
   let sum = 0; for (let i=0;i<tbuf.length;i++) sum += tbuf[i]*tbuf[i];
   const rms = Math.sqrt(sum/tbuf.length), db = 20*Math.log10(rms + 1e-9);
-  return { level: clamp((db + 55)/45, 0, 1), hz: rms > 0.012 ? detectPitch(tbuf, actx.sampleRate) : 0 };
+  return { level: clamp((db + 55)/45, 0, 1), db, hz: rms > 0.012 ? detectPitch(tbuf, actx.sampleRate) : 0 };
 }
 function noiseBuf(sec, shape){ const len = Math.floor(actx.sampleRate*sec), b = actx.createBuffer(1, len, actx.sampleRate), d = b.getChannelData(0);
   for (let i=0;i<len;i++) d[i] = (Math.random()*2 - 1)*(shape ? shape(i/len) : 1); return b; }
@@ -1754,7 +1762,7 @@ function update(dt){
       const c = CANNONS[S.ci];
       if (c !== undefined){
         if (S.clock >= c - 0.35) S.cpk = Math.max(S.cpk, S.lv);
-        if (S.clock >= c + 0.45){ S.cres[S.ci] = S.cpk >= 0.45; cannonHit(S.cpk >= 0.45); S.ci++; S.cpk = 0; }
+        if (S.clock >= c + 0.45){ S.cres[S.ci] = S.cpk >= CANNON_GATE; cannonHit(S.cpk >= CANNON_GATE); S.ci++; S.cpk = 0; }
       }
       if (S.clock >= OV_END && !S.ended){ S.stage = 'over'; const r = round; setTimeout(() => showResult('held', r), 800); }
     }
@@ -1773,7 +1781,14 @@ function update(dt){
       if (S.clock >= 30){ S.clock = 30; S.stage = 'over'; stopCrowdAudio(); const r = round; setTimeout(() => showResult('held', r), 1200); } }
   }
   const on = active();
-  S.drive = on ? Math.max(0, (S.lv - 0.22)/0.78) : 0;
+  S.drive = on ? Math.max(0, (S.lv - GATE)/(1 - GATE)) : 0;   // 문턱(GATE) 아래 말소리로는 거의 안 흔들림
+  { const dbfs = v.db !== undefined ? v.db : v.level*45 - 55; S.spl = clamp(dbfs + 108, 30, 140);   // 대략적인 소리 크기(dB). 마이크마다 다름
+    S.splS = S.splS ? S.splS + (S.spl - S.splS)*Math.min(1, dt*(S.spl > S.splS ? 12 : 4)) : S.spl; if (on && S.splS > S.peakDb) S.peakDb = S.splS; }
+  // 피버: 문턱을 넉넉히 넘는 함성을(노래·공진 모드는 음까지 맞춰) 2.5초 버티면 피해 두 배, 끊겨도 0.8초는 봐줌
+  if (on){ const good = S.drive > 0.3 && (S.ov || S.match > 0.6);
+    if (good){ S.fevT += dt; S.fevGrace = 0.8; } else if ((S.fevGrace -= dt) <= 0) S.fevT = 0;
+    const was = S.fever; S.fever = S.fevT >= 2.5; if (S.fever){ S.fevTotal += dt; if (!was){ S.flash = Math.max(S.flash, 0.25); S.shake = Math.max(S.shake, 0.6); } } }
+  else S.fever = false;
   let crowdTerm = 0;
   if (on && S.mode === 'scream'){
     S.sync = clamp(S.sync + (S.match > 0.6 && S.drive > 0.15 ? 0.13 : -0.1)*dt, 0, 1);
@@ -1790,7 +1805,7 @@ function update(dt){
       while (S.nj < NOTES.length && t > NOTES[S.nj].t1 + 0.25){ judgeNote(S.nj); S.nj++; } }
     S.elapsed += dt; S.peak = Math.max(S.peak, S.lv);
     if (S.match > 0.6 && S.drive > 0.1) S.resT += dt;
-    const over = S.A - 0.1; if (over > 0) S.I -= 6*Math.pow(over, 1.3)*dt*(S.songId === 'kaiser' ? (S.clock < SONG_KEY ? 0.2 : 0.42) : S.song && S.clock < SONG_KEY ? 0.13 : S.ov ? 0.15 : 1);
+    const over = S.A - 0.1; if (over > 0) S.I -= 6*Math.pow(over, 1.3)*dt*(S.fever && !S.ov && !(S.song && S.clock < SONG_KEY) ? 2 : 1)*(S.songId === 'kaiser' ? (S.clock < SONG_KEY ? 0.2 : 0.42) : S.song && S.clock < SONG_KEY ? 0.13 : S.ov ? 0.15 : 1);
     if (S.ov) S.I = Math.max(S.I, 4);   // 마지막 한 방은 대포가 친다
     progressDamage();
     if (S.I <= 0) explode();
@@ -1837,7 +1852,7 @@ function fmtClock(sec){
 function drawCannons(g, W, H){   // 1812: 오른쪽에서 대포 표시가 흘러와 세로선(지금)에 닿을 때 크게 외치기. 아래 꼬리는 내 함성 크기
   const t = Math.max(0, S.clock), nowX = W*0.24, pxs = (W - nowX)/8, top = 22, bot = H - 22, X = tt => nowX + (tt - t)*pxs, Y = v => bot - clamp(v, 0, 1)*(bot - top);
   g.font = '13px system-ui, sans-serif'; g.textBaseline = 'middle';
-  const thr = Y(0.45); g.strokeStyle = 'rgba(255,255,255,.35)'; g.setLineDash([5, 5]); g.beginPath(); g.moveTo(0, thr); g.lineTo(W, thr); g.stroke(); g.setLineDash([]);
+  const thr = Y(CANNON_GATE); g.strokeStyle = 'rgba(255,255,255,.35)'; g.setLineDash([5, 5]); g.beginPath(); g.moveTo(0, thr); g.lineTo(W, thr); g.stroke(); g.setLineDash([]);
   g.fillStyle = 'rgba(255,255,255,.55)'; g.fillText('이 선 위로', 6, thr - 9);
   CANNONS.forEach((c, i) => { const x0 = X(c - 0.35), x1 = X(c + 0.45); if (x1 < 0 || x0 > W) return;
     const res = S.cres[i], col = res === true ? '95,211,154' : res === false ? '235,110,90' : '255,210,120';
@@ -1848,7 +1863,7 @@ function drawCannons(g, W, H){   // 1812: 오른쪽에서 대포 표시가 흘�
   g.lineWidth = 3; g.lineCap = 'round'; g.strokeStyle = 'rgba(255,255,255,.85)'; g.beginPath();
   S.trail.forEach(([tt, v], k) => { const x = X(tt), y = Y(v); if (k) g.lineTo(x, y); else g.moveTo(x, y); }); g.stroke();
   g.strokeStyle = 'rgba(255,255,255,.5)'; g.lineWidth = 2; g.beginPath(); g.moveTo(nowX, 4); g.lineTo(nowX, bot); g.stroke();
-  g.fillStyle = S.lv >= 0.45 ? '#5fd39a' : '#f5a650'; g.beginPath(); g.arc(nowX, Y(S.lv), 7, 0, Math.PI*2); g.fill();
+  g.fillStyle = S.lv >= CANNON_GATE ? '#5fd39a' : '#f5a650'; g.beginPath(); g.arc(nowX, Y(S.lv), 7, 0, Math.PI*2); g.fill();
   const nc = CANNONS[S.ci];
   if (nc !== undefined && nc - t < 3.2 && nc - t > -0.4){ g.fillStyle = '#fff'; g.font = 'bold 22px system-ui, sans-serif'; g.textAlign = 'center'; g.fillText(nc - t > 0.6 ? String(Math.ceil(nc - t - 0.4)) : '지금!', X(nc), (top + bot)/2); g.textAlign = 'left'; }
   else if (nc === undefined && !S.ended){ g.fillStyle = 'rgba(255,255,255,.6)'; g.textAlign = 'center'; g.fillText('대포가 다 터졌습니다', W/2, (top + bot)/2); g.textAlign = 'left'; }
@@ -1902,7 +1917,10 @@ function drawRoll(){   // 노래방식 음정 띠: 오른쪽에서 음표 막대
 function hud(){
   $('skipBtn').hidden = !(S.ov && S.stage === 'count' && S.clock < 0);
   $('lvBar').style.width = (S.lv*100).toFixed(1) + '%';
-  $('lvTxt').textContent = S.lv < .22 ? '조용함' : S.lv < .45 ? '말소리' : S.lv < .7 ? '고함' : '함성';
+  $('lvTxt').textContent = S.lv < .3 ? '조용함' : S.lv < GATE ? '말소리 (안 흔들림)' : S.lv < .75 ? '고함' : '함성!';
+  { const d = S.splS || 0; $('dbTxt').textContent = d > 31 ? '≈' + Math.round(d) + ' dB' : '— dB';
+    $('dbPeak').textContent = (S.peakDb ? '최고 ' + Math.round(S.peakDb) + ' dB · ' : '') + (d >= 110 ? '록 공연' : d >= 100 ? '지하철' : d >= 90 ? '잔디깎이' : d >= 80 ? '시끄러운 거리' : d >= 70 ? '청소기' : d >= 55 ? '대화' : '속삭임');
+    $('fever').hidden = !S.fever; }
   $('hzLab').textContent = S.ov ? '대포에 맞춘 함성' : S.song ? '따라 부르기' : '내 음 / 건물 고유진동수';
   $('myHz').textContent = S.ov ? S.hits + ' / ' + CANNONS.length : S.song ? (S.hz ? hzName(S.hz) : '—') : S.hz ? Math.round(S.hz) + ' Hz' : '— Hz';
   $('tgHz').textContent = S.ov ? '맞힌 대포' : S.song ? '목표 ' + hzName(targetHz()) : '목표 ' + Math.round(targetHz()) + ' Hz';
@@ -1942,7 +1960,7 @@ function hud(){
   else if (S.mode === 'scream' && S.stage === 'count' && !S.song) msg = S.cents !== null && S.match > .6 ? '그 음입니다. 12시가 되면 그대로 외치세요.' : '12시 전에 목표 음을 미리 찾아 두세요.';
   else if (S.mode === 'scream' && S.stage === 'count') msg = yt.failed ? '유튜브 녹음을 불러오지 못해 합성 가이드로 부릅니다.' : '번스타인 녹음을 불러오는 중입니다. 이어폰을 끼세요.';
   else if (active() && !S.song){
-    if (S.lv < .22) msg = S.mode === 'scream' ? '같이 외치세요! 당신이 음을 잡아야 사람들이 따라옵니다.' : '더 크게 외치세요.';
+    if (S.lv < GATE) msg = S.mode === 'scream' ? '같이 외치세요! 당신이 음을 잡아야 사람들이 따라옵니다.' : '더 크게 외치세요.';
     else if (S.cents === null) msg = '"아—" 하고 한 음으로 길게 끌어 주세요.';
     else if (S.match > .6) msg = I > 60 ? '공진 중. 그 음 그대로 유지하세요.' : I > 30 ? '외벽이 쏟아집니다. 음이 내려가는 걸 따라가세요.' : '곧 무너집니다. 멈추지 마세요!';
     else msg = S.cents < 0 ? '조금 더 높게.' : '조금 더 낮게.';
@@ -1951,7 +1969,7 @@ function hud(){
     if (curNote() < 0 && S.songId === 'kaiser') msg = S.clock < 0 ? '전주가 끝나면 G "Gott"부터 부르세요.' : '숨 쉬세요.';
     else if (curNote() < 0) msg = (S.clock < 20 || S.clock > 95) ? '녹음에 맞춰 자유롭게 부르세요.' : S.clock < SONG_KEY ? '다음 음을 준비하세요. 본 무대는 "Aufersteh’n"부터입니다.' : '숨 쉬세요.';
     else if (simT - S.lastHit < 0.8) msg = '맞았습니다! 유리가 깨집니다.';
-    else if (S.lv < .22) msg = S.mode === 'scream' ? '같이 부르세요! 당신이 음을 맞혀야 사람들이 따라 부릅니다.' : '더 크게 부르세요.';
+    else if (S.lv < GATE) msg = S.mode === 'scream' ? '같이 부르세요! 당신이 음을 맞혀야 사람들이 따라 부릅니다.' : '더 크게 부르세요.';
     else if (S.cents === null) msg = '가사에 맞춰 음을 길게 끌어 주세요.';
     else if (S.match > .6) msg = I > 60 ? '그 음입니다. 다음 음으로 넘어가세요.' : I > 30 ? '외벽이 쏟아집니다. 끝까지 부르세요.' : '곧 무너집니다. 멈추지 마세요!';
     else msg = S.cents < 0 ? '조금 더 높게.' : '조금 더 낮게.';
@@ -1966,8 +1984,8 @@ function showResult(kind, r){
   const scream = S.mode === 'scream';
   $('rTitle').textContent = kind === 'down' ? `${C.name} 도서관이 무너졌습니다` : `${C.name} 도서관이 버텼습니다`;
   $('rTime').textContent = fmt(S.elapsed); $('rResLab').textContent = S.ov ? '맞힌 대포' : S.song ? '맞힌 음절' : '공진 유지'; $('rRes').textContent = S.ov ? S.hits + ' / ' + CANNONS.length : S.song ? S.hits + ' / ' + S.total : Math.round(S.resT) + '초';
-  $('rThirdLab').textContent = scream ? '따라 외친 학생' : '최대 음량';
-  $('rPeak').textContent = scream ? Math.round(S.maxFollow*crowd.n) + '명' : Math.round(S.peak*100) + '%';
+  $('rThirdLab').textContent = '최고 함성'; $('rPeak').textContent = S.peakDb ? '≈' + Math.round(S.peakDb) + ' dB' : '—';
+  const rec = saveRecord(kind);
   const ratio = (S.song || S.ov) ? (S.total ? S.hits/S.total : 0) : S.elapsed ? S.resT/S.elapsed : 0;
   if (kind === 'held'){
     if (S.ov) $('rLine').textContent = `대포 ${CANNONS.length}발이 다 터졌는데도 구조 건전성 ${Math.ceil(S.I)}%로 버텼습니다. 대포가 터지는 바로 그 순간에 더 크게 외쳐 보세요.`;
@@ -1980,7 +1998,30 @@ function showResult(kind, r){
       (ratio > .6 ? (S.song ? (S.songId === 'kaiser' ? '음을 거의 놓치지 않았습니다. 하이든도 만족할 합창입니다.' : '음을 거의 놓치지 않았습니다. 말러도 만족할 합창입니다.') : '음을 거의 놓치지 않았습니다. 교과서에 실릴 공진입니다.') : ratio > .3 ? '음이 몇 번 흔들렸지만 결국 건물이 먼저 졌습니다.' : '음보다 성량으로 밀어붙였습니다.');
     $('againBtn').textContent = scream ? '다음 시험기간에 다시' : '다시 세우기';
   }
+  if (rec) $('rLine').textContent += ' ' + rec;
+  if (S.fevTotal > 0.5) $('rLine').textContent += ` 피버 ${Math.round(S.fevTotal)}초.`;
   $('result').hidden = false; $('againBtn').focus();
+}
+function saveRecord(kind){   // 캠퍼스·모드별 최단 붕괴 시간과 최고 함성 (이 브라우저에만 저장)
+  const key = CK + '|' + (S.kind || S.mode); let all = {};
+  try { all = JSON.parse(localStorage.getItem('libblast-best') || '{}'); } catch (e) { return ''; }
+  const old = all[key] || {}, now = { t: kind === 'down' ? S.elapsed : null, db: Math.round(S.peakDb || 0) };
+  const newT = now.t !== null && (old.t == null || now.t < old.t), newDb = now.db > (old.db || 0);
+  all[key] = { t: newT ? now.t : old.t ?? null, db: Math.max(now.db, old.db || 0) };
+  try { localStorage.setItem('libblast-best', JSON.stringify(all)); } catch (e) {}
+  const parts = [];
+  if (all[key].t != null) parts.push('최단 기록 ' + fmt(all[key].t) + (newT ? ' (새 기록!)' : ''));
+  if (all[key].db) parts.push('최고 함성 ' + all[key].db + ' dB' + (newDb && old.db ? ' (새 기록!)' : ''));
+  return parts.length ? parts.join(' · ') + '.' : '';
+}
+function saveShot(){   // 결과 이미지: 지금 화면 + 기록 문구를 PNG로 저장
+  render(); const src = renderer.domElement, W = 1200, H = Math.round(W*src.height/src.width), c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d'); g.drawImage(src, 0, 0, W, H);
+  const gr = g.createLinearGradient(0, H*0.62, 0, H); gr.addColorStop(0, 'rgba(10,12,18,0)'); gr.addColorStop(1, 'rgba(10,12,18,.9)'); g.fillStyle = gr; g.fillRect(0, H*0.62, W, H*0.38);
+  g.fillStyle = '#fff'; g.font = '800 46px system-ui, sans-serif'; g.fillText($('rTitle').textContent, 40, H - 92);
+  g.font = '28px system-ui, sans-serif'; g.fillStyle = '#e8ecf3';
+  g.fillText(`걸린 시간 ${$('rTime').textContent} · ${$('rResLab').textContent} ${$('rRes').textContent} · 최고 함성 ${$('rPeak').textContent}`, 40, H - 44);
+  const a = document.createElement('a'); a.download = `library-blast-${CK}.png`; a.href = c.toDataURL('image/png'); a.click();
 }
 function selectCampus(k){
   CK = k; C = CAMPUS[k]; MAIN = C.main; setOutline(MAIN.poly);
@@ -2025,13 +2066,15 @@ $('songBtn').addEventListener('click', () => onStart('song'));
 $('ovBtn').addEventListener('click', () => onStart('1812'));
 $('kaiserBtn').addEventListener('click', () => onStart('kaiser'));
 $('againBtn').addEventListener('click', () => { stopCrowdAudio(); $('result').hidden = true; begin(S.kind || S.mode); });
+$('shotBtn').addEventListener('click', saveShot);
 $('pickBtn').addEventListener('click', () => { stopCrowdAudio(); $('result').hidden = true; S.stage = 'idle'; S.song = false; S.ov = false; $('ytWrap').hidden = true; $('lyricBig').hidden = true; round++; setSky('night'); reset(); setView('out'); $('intro').hidden = false; });
 
 selectCampus('postech');
 
 let last = performance.now();
 renderer.setAnimationLoop(now => {
-  const dt = Math.min(0.05, (now - last)/1000); last = now;
+  let dt = Math.min(0.05, (now - last)/1000); last = now;
+  if (S.slowmo > 0){ S.slowmo -= dt; dt *= 0.28; }   // 무너지는 순간 1.5초 슬로모션
   update(dt); render(); hud();
 });
 // 시험용
