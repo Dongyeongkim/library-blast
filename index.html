@@ -133,12 +133,14 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
       <li>건물마다 잘 흔들리는 음높이(고유진동수)가 있습니다. 계기판의 목표 Hz에 맞춰 "아—" 하고 길게 외치세요. 한 옥타브 위나 아래도 됩니다.</li>
       <li>당신이 그 음을 붙잡고 있으면 난간의 학생들이 하나둘 같은 음으로 따라 외칩니다. 한 음으로 모일수록 진동이 빨리 쌓입니다.</li>
       <li>금이 갈수록 건물이 물러져 고유진동수가 내려갑니다. 음을 따라 내리세요.</li>
+      <li>1812 서곡: 차이콥스키 「1812년 서곡」 피날레(미국 해병대 군악대 연주)가 흐르고, 가면을 쓴 학생들이 함께 외칩니다. 대포가 터지는 순간 크게 외치면 명중해 건물이 크게 부서지고, 마지막 일격도 대포가 칩니다. 무너지면 모두 광장으로 나와 불꽃놀이를 봅니다.</li>
       <li>말러 합창: 번스타인·런던 심포니 녹음(유튜브)을 틀어 놓고 교향곡 2번 「부활」의 마지막 합창을 같이 부릅니다. 가사가 화면에 뜨고, 아래 음정 띠에서 부를 음의 위치를 볼 수 있습니다. 맞힌 음마다 유리가 깨지고, "Aufersteh'n"부터 크게 흔들립니다. 녹음이 마이크에 섞이지 않게 이어폰을 끼세요.</li>
     </ul>
     <div class="btns">
       <button id="startBtn">스크리밍 데이 시작</button>
       <button id="soloBtn" class="second">혼자 해보기</button>
       <button id="songBtn" class="second">말러 합창 따라 부르기</button>
+      <button id="ovBtn" class="second">1812 서곡 가면 축제</button>
     </div>
     <p class="err" id="err" hidden></p>
     <p class="note">혼자 해보기는 폐관 후 빈 건물에서 합니다. 소리는 이 브라우저 안에서만 분석하고 어디에도 보내지 않습니다. 건물은 사진을 보고 만든 근사 모형이라 비례와 층수, 내부는 실제와 다릅니다.</p>
@@ -172,6 +174,7 @@ setTimeout(() => { if (!window.__libOk){ const e = document.getElementById('err'
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { ParametricGeometry } from 'three/addons/geometries/ParametricGeometry.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 window.__libOk = true;
 
 const $ = id => document.getElementById(id);
@@ -1018,6 +1021,20 @@ const crowd = (() => {
     armR: mk(armG, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 })),
     n: 0, where: 'balcony', p: [],
   };
+  // 1812 서곡 모드용 가면: 흰 얼굴, 발그레한 뺨, 위로 말린 콧수염과 뾰족한 턱수염 (실존 인물 가이 포크스 캐리커처를 직접 단순하게 만든 것)
+  {
+    const face = new THREE.SphereGeometry(0.14, 14, 10); face.scale(1, 1.22, 0.62); face.translate(0, 0, 0.055);
+    const bits = [], blk = (w, h, d, x, y, z, rz = 0) => { const g = box(w, h, d); g.rotateZ(rz); g.translate(x, y, z); bits.push(g); };
+    blk(0.13, 0.02, 0.02, 0, -0.035, 0.138); blk(0.05, 0.018, 0.02, -0.075, -0.02, 0.13, 0.75); blk(0.05, 0.018, 0.02, 0.075, -0.02, 0.13, -0.75);   // 콧수염
+    blk(0.055, 0.013, 0.012, -0.048, 0.06, 0.142, 0.35); blk(0.055, 0.013, 0.012, 0.048, 0.06, 0.142, -0.35);   // 눈썹
+    blk(0.04, 0.012, 0.012, -0.048, 0.03, 0.146); blk(0.04, 0.012, 0.012, 0.048, 0.03, 0.146);   // 실눈
+    const goat = new THREE.ConeGeometry(0.02, 0.08, 6); goat.rotateX(Math.PI); goat.translate(0, -0.12, 0.115); bits.push(goat);
+    const cheeks = [-1, 1].map(sg => { const g = new THREE.SphereGeometry(0.024, 8, 6); g.scale(1, 0.8, 0.4); g.translate(sg*0.068, -0.005, 0.134); return g; });
+    const ni = g => g.toNonIndexed();
+    const geo = mergeGeometries([ni(face), mergeGeometries(bits.map(ni)), mergeGeometries(cheeks.map(ni))], true);   // 그룹 0 얼굴, 1 검정, 2 뺨
+    geo.scale(1.15, 1.15, 1.15);
+    const m = new THREE.InstancedMesh(geo, [new THREE.MeshStandardMaterial({ color: 0xf1ead8, roughness: 0.55 }), new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.6 }), new THREE.MeshStandardMaterial({ color: 0xe48b8b, roughness: 0.6 })], CMAX);
+    m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); m.frustumCulled = false; m.visible = false; scene.add(m); c.mask = m; }
   const col = new THREE.Color();
   for (let i=0;i<CMAX;i++){
     const cl = CLOTH[i % CLOTH.length], hr = HAIR[i % HAIR.length];
@@ -1061,12 +1078,14 @@ function finishPlace(P, where){
   P.forEach((p, i) => { p.rank = ranks[i]/P.length; p.armBase = rnd(0.15, 1.4); });
   crowd.p = P; crowd.n = P.length; crowd.where = where;
   for (const k of ['body','head','armL','armR']){ crowd[k].count = crowd.n; if (crowd[k].instanceColor) crowd[k].instanceColor.needsUpdate = true; }
+  crowd.mask.count = crowd.n;
 }
 const cm = new THREE.Matrix4(), cm2 = new THREE.Matrix4(), cr = new THREE.Matrix4(), cq = new THREE.Quaternion(), cv3 = new THREE.Vector3(), ONE = new THREE.Vector3(1,1,1);
 const OFF_B = new THREE.Matrix4().makeTranslation(0, 0.71, 0), OFF_H = new THREE.Matrix4().makeTranslation(0, 1.58, 0);
 function updateCrowd(t){
   const show = S.mode === 'scream';
   for (const k of ['body','head','armL','armR']) crowd[k].visible = show;
+  crowd.mask.visible = show && !!S.ov;
   if (!show) return;
   const screaming = S.stage === 'scream' && !S.ended;
   for (let i=0;i<crowd.n;i++){
@@ -1083,11 +1102,38 @@ function updateCrowd(t){
     cm.compose(cv3.set(x, p.y + bounce, z), cq, ONE);
     crowd.body.setMatrixAt(i, cm2.multiplyMatrices(cm, OFF_B));
     crowd.head.setMatrixAt(i, cm2.multiplyMatrices(cm, OFF_H));
+    if (S.ov) crowd.mask.setMatrixAt(i, cm2.multiplyMatrices(cm, OFF_H));
     cr.makeRotationZ(-arm); cr.setPosition(-0.26, 1.36, 0); crowd.armL.setMatrixAt(i, cm2.multiplyMatrices(cm, cr));
     cr.makeRotationZ(arm);  cr.setPosition(0.26, 1.36, 0);  crowd.armR.setMatrixAt(i, cm2.multiplyMatrices(cm, cr));
   }
   for (const k of ['body','head','armL','armR']) crowd[k].instanceMatrix.needsUpdate = true;
+  if (S.ov) crowd.mask.instanceMatrix.needsUpdate = true;
 }
+
+/* ================= 불꽃놀이 ================= */
+const FW = (() => {
+  const N = 4000, pos = new Float32Array(N*3), col = new Float32Array(N*3), vel = new Float32Array(N*3), life = new Float32Array(N), base = new Float32Array(N*3);
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  const dot = (() => { const c = document.createElement('canvas'); c.width = c.height = 32; const g = c.getContext('2d'), gr = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,.8)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 32, 32); return new THREE.CanvasTexture(c); })();
+  const pts = new THREE.Points(geo, new THREE.PointsMaterial({ map: dot, size: 2.6, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  pts.frustumCulled = false; scene.add(pts);
+  let k = 0; const C3 = new THREE.Color(), PAL = [0xff4d4d, 0xffd34d, 0x6dd3ff, 0xb98bff, 0x7dff9a, 0xffffff, 0xff8a3d];
+  return {
+    burst(x, y, z, n = 160){ C3.setHex(PAL[Math.floor(Math.random()*PAL.length)]); const sp = rnd(9, 15);
+      for (let i=0;i<n;i++){ const j = k; k = (k + 1) % N; const u = rnd(-1, 1), th = rnd(0, Math.PI*2), r = Math.sqrt(1 - u*u), v = sp*rnd(0.8, 1);
+        pos[j*3] = x; pos[j*3+1] = y; pos[j*3+2] = z; vel[j*3] = r*Math.cos(th)*v; vel[j*3+1] = u*v; vel[j*3+2] = r*Math.sin(th)*v; life[j] = rnd(1.4, 2.2);
+        base[j*3] = C3.r; base[j*3+1] = C3.g; base[j*3+2] = C3.b; } },
+    sky(n = 1){ for (let i=0;i<n;i++) this.burst(BC.x + rnd(-40, 40), MAIN.nf*MAIN.fh + rnd(18, 42), BC.z + rnd(-40, 40), 220); },
+    update(dt){ const drag = Math.pow(0.35, dt);
+      for (let j=0;j<N;j++){ if (life[j] <= 0){ col[j*3] = col[j*3+1] = col[j*3+2] = 0; continue; }
+        life[j] -= dt; vel[j*3] *= drag; vel[j*3+1] = vel[j*3+1]*drag - 3.5*dt; vel[j*3+2] *= drag;
+        pos[j*3] += vel[j*3]*dt; pos[j*3+1] += vel[j*3+1]*dt; pos[j*3+2] += vel[j*3+2]*dt;
+        const f = clamp(life[j]/1.2, 0, 1); col[j*3] = base[j*3]*f; col[j*3+1] = base[j*3+1]*f; col[j*3+2] = base[j*3+2]*f; }
+      geo.attributes.position.needsUpdate = true; geo.attributes.color.needsUpdate = true; },
+    clear(){ life.fill(0); col.fill(0); geo.attributes.color.needsUpdate = true; },
+  };
+})();
 
 /* ================= 파편 ================= */
 class Burst {
@@ -1250,7 +1296,8 @@ function jumpStep(dt){
 function reset(){
   buildLibrary(); shards.clear(); books.clear();
   for (const d of dusts){ d.max = 0; d.sp.visible = false; }
-  Object.assign(S, { ended:false, I:100, A:0, elapsed:0, resT:0, peak:0, maxFollow:0, shake:0, flash:0, sync:0, clock:-10, f0: Math.round(rnd(165, 245)), ni: -1, nm: 0, nd: 0, hits: 0, total: 0, lastHit: -9, loop: 0, hitSet: new Set(), trail: [] });
+  Object.assign(S, { ended:false, I:100, A:0, elapsed:0, resT:0, peak:0, maxFollow:0, shake:0, flash:0, sync:0, clock:-10, f0: Math.round(rnd(165, 245)), ni: -1, nm: 0, nd: 0, hits: 0, total: 0, lastHit: -9, loop: 0, hitSet: new Set(), trail: [], ci: 0, cpk: 0, fwT: 0 });
+  FW.clear();
   M.floor.emissiveIntensity = 0.3; M.shelf.emissiveIntensity = 0.4; M.ceil.emissiveIntensity = 0.55;
   boomLight.intensity = 0;
   BC.set(MAIN.cx, MAIN.nf*MAIN.fh*0.45, MAIN.cz); boomLight.position.copy(BC);
@@ -1288,6 +1335,28 @@ const NOTES = (() => {
      [77,2,'du,'],[75,2,'mein'],[82,2,'Herz,'],[79,2,'in'],[77,1,'ei'],[75,1,''],[74,1,'nem'],[75,1,''],[77,4,'Nu!']]);
   return out;
 })();
+// 1812 서곡: 차이콥스키, 미국 해병대 군악대 "The President's Own" 2019년 5월 26일 울프트랩 연주(미국 정부 저작물 = 퍼블릭 도메인, 위키미디어 공용).
+// 원본 650~731초(피날레)를 잘라 audio/1812-finale.m4a로. 대포 시각은 녹음 50ms 음량의 급상승(직전 0.5초 평균의 2.5배 이상)으로 뽑음
+const OV_END = 80.5, CANNONS = [31.2, 33.1, 35.65, 37.6, 39.35, 40.7, 42.2, 43.35, 45.7, 48.25, 50.75, 59.15, 60.4, 61.65, 62.9];
+const OV = { el: null, failed: false };
+function ovStart(){
+  if (!OV.el){ OV.el = new Audio('audio/1812-finale.m4a'); OV.el.preload = 'auto'; }
+  OV.failed = false; OV.el.currentTime = 0;
+  if (window.__fake) return;
+  const p = OV.el.play(); if (p && p.catch) p.catch(() => { OV.failed = true; });
+}
+function ovStop(){ if (OV.el){ try { OV.el.pause(); } catch (e) {} } }
+const ovPlaying = () => OV.el && !OV.el.paused && OV.el.currentTime > 0;
+function cannonHit(hit){
+  S.total++;
+  S.shake = Math.max(S.shake, hit ? 1.3 : 0.45); boomLight.position.copy(BC); boomLight.intensity = Math.max(boomLight.intensity, hit ? 2500 : 700);
+  if (!hit || S.ended) return;
+  S.hits++; S.lastHit = simT; S.flash = Math.max(S.flash, 0.3); S.A = Math.min(1.4, S.A + 0.25); S.I -= 6;
+  const c = pieces.filter(p => p.glass && !p.shattered && alive(p));
+  for (let k=0; k<6 && c.length; k++){ const pc = c.splice(Math.floor(Math.random()*c.length), 1)[0]; pc.crack = 1; pc.glass.material = pc.crackMat; shatter(pc); }
+  FW.sky(1);
+  if (S.I <= 0) explode();
+}
 const NOTE_NAME = ['C','C♯','D','E♭','E','F','F♯','G','A♭','A','B♭','B'];
 const midiHz = m => 440*Math.pow(2, (m - 69)/12);
 const hzName = hz => NOTE_NAME[((Math.round(69 + 12*Math.log2(hz/440)) % 12) + 12) % 12];
@@ -1400,10 +1469,11 @@ function explode(){
     shards.emit(x, y, z, (x - BC.x)*rnd(0.3,1.1), rnd(4,18), (z - BC.z)*rnd(0.4,1.4) + rnd(-3,3), rnd(4,8)); }
   for (let i=0;i<70;i++) puff(rnd(bx0, bx1), rnd(0, by1*0.6), rnd(bz0, bz1), rnd(7, 15));
   boomLight.intensity = 9000;
-  if (S.mode === 'scream'){ stopCrowdAudio(); placePlaza(); setTimeout(() => startCrowdAudio(5, 0.1), 1600); }
+  if (S.mode === 'scream'){ stopCrowdAudio(S.song || S.ov); placePlaza(); setTimeout(() => startCrowdAudio(5, 0.1), 1600); }
+  if (S.ov){ FW.sky(7); S.fwT = 0; S.fwUntil = simT + Math.max(8, OV_END - 2 - S.clock); }
   if (view === 'in'){ launchCamera(); S.flash = 0.6; }
   boom();
-  const r = round; setTimeout(() => showResult('down', r), 4800);
+  const r = round; setTimeout(() => showResult('down', r), S.ov ? 15000 : 4800);
 }
 
 /* ================= 소리 ================= */
@@ -1529,7 +1599,7 @@ function steerCrowdAudio(){
   }
 }
 function stopCrowdAudio(keepGuide){
-  if (!keepGuide){ stopGuide(); ytStop(); }
+  if (!keepGuide){ stopGuide(); ytStop(); ovStop(); }
   if (!crowdAudio || !actx) return;
   const t = actx.currentTime, g = crowdAudio.out.gain;
   g.cancelScheduledValues(t); g.setValueAtTime(Math.max(g.value, 0.0001), t); g.linearRampToValueAtTime(0.0001, t + 0.4);
@@ -1550,14 +1620,29 @@ function update(dt){
   else if ((S.noHz += dt) > 0.25) S.hz = 0;
   const f = targetHz(); S.cents = null; S.match = 0;
   if (S.hz > 0){ let d = 1200*Math.log2(S.hz/f); d = ((d % 1200) + 1800) % 1200 - 600; S.cents = d; S.match = Math.exp(-((d/(S.song ? 140 : 220))**2)); }
+  if (S.ov){ S.match = S.lv > 0.3 ? 0.85 : 0.1; S.cents = null; }
 
+  if (S.ov && !S.ended){   // 1812 서곡: 녹음 재생 시각이 곧 시계, 대포가 터지는 순간 함성이 크면 명중
+    if (S.stage === 'count' && (ovPlaying() || OV.failed || window.__fake)) S.stage = 'scream';
+    if (S.stage === 'scream'){
+      S.clock = (window.__fake || OV.failed || !OV.el) ? S.clock + dt : OV.el.currentTime;
+      const c = CANNONS[S.ci];
+      if (c !== undefined){
+        if (S.clock >= c - 0.35) S.cpk = Math.max(S.cpk, S.lv);
+        if (S.clock >= c + 0.45){ cannonHit(S.cpk >= 0.45); S.ci++; S.cpk = 0; }
+      }
+      if (S.clock >= OV_END && !S.ended){ S.stage = 'over'; const r = round; setTimeout(() => showResult('held', r), 800); }
+    }
+  }
+  if (S.ov && S.ended && simT < S.fwUntil){ if ((S.fwT += dt) > 0.3){ S.fwT = 0; FW.sky(1); } }
+  FW.update(dt);
   if (S.song && !S.ended){   // 말러 합창: 녹음 재생 시각이 곧 시계
     ytTick();
     if (S.stage === 'count'){ if ((yt.ok && yt.playing) || guide || window.__fake){ S.stage = 'scream'; } }
     if (S.stage === 'scream'){ S.clock = window.__fake ? S.clock + dt : songRaw();
       if (S.clock >= SONG_END){ S.stage = 'over'; const r = round; setTimeout(() => showResult('held', r), 1200); } }
   }
-  if (S.mode === 'scream' && !S.ended && !S.song){
+  if (S.mode === 'scream' && !S.ended && !S.song && !S.ov){
     if (S.stage === 'count'){ S.clock += dt; if (S.clock >= 0){ S.clock = 0; S.stage = 'scream'; startCrowdAudio(30); } }
     else if (S.stage === 'scream'){ S.clock += dt;
       if (S.clock >= 30){ S.clock = 30; S.stage = 'over'; stopCrowdAudio(); const r = round; setTimeout(() => showResult('held', r), 1200); } }
@@ -1578,7 +1663,8 @@ function update(dt){
       S.nd += dt; if (S.match > 0.6 && S.drive > 0.1 && ni >= 0) S.nm += dt; }
     S.elapsed += dt; S.peak = Math.max(S.peak, S.lv);
     if (S.match > 0.6 && S.drive > 0.1) S.resT += dt;
-    const over = S.A - 0.1; if (over > 0) S.I -= 6*Math.pow(over, 1.3)*dt*(S.song && S.clock < SONG_KEY ? 0.13 : 1);
+    const over = S.A - 0.1; if (over > 0) S.I -= 6*Math.pow(over, 1.3)*dt*(S.song && S.clock < SONG_KEY ? 0.13 : S.ov ? 0.15 : 1);
+    if (S.ov) S.I = Math.max(S.I, 4);   // 마지막 한 방은 대포가 친다
     progressDamage();
     if (S.I <= 0) explode();
   }
@@ -1660,9 +1746,9 @@ function drawRoll(){   // 노래방식 음정 띠: 오른쪽에서 음표 막대
 function hud(){
   $('lvBar').style.width = (S.lv*100).toFixed(1) + '%';
   $('lvTxt').textContent = S.lv < .22 ? '조용함' : S.lv < .45 ? '말소리' : S.lv < .7 ? '고함' : '함성';
-  $('hzLab').textContent = S.song ? '따라 부르기' : '내 음 / 건물 고유진동수';
-  $('myHz').textContent = S.song ? (S.hz ? hzName(S.hz) : '—') : S.hz ? Math.round(S.hz) + ' Hz' : '— Hz';
-  $('tgHz').textContent = S.song ? '목표 ' + hzName(targetHz()) : '목표 ' + Math.round(targetHz()) + ' Hz';
+  $('hzLab').textContent = S.ov ? '대포에 맞춘 함성' : S.song ? '따라 부르기' : '내 음 / 건물 고유진동수';
+  $('myHz').textContent = S.ov ? S.hits + ' / ' + CANNONS.length : S.song ? (S.hz ? hzName(S.hz) : '—') : S.hz ? Math.round(S.hz) + ' Hz' : '— Hz';
+  $('tgHz').textContent = S.ov ? '맞힌 대포' : S.song ? '목표 ' + hzName(targetHz()) : '목표 ' + Math.round(targetHz()) + ' Hz';
   $('lyr').hidden = true; drawRoll();
   const nd = $('needle');
   if (S.cents === null) nd.style.opacity = .25;
@@ -1674,16 +1760,28 @@ function hud(){
   const ib = $('intBar'); ib.style.width = I + '%'; ib.style.background = I > 60 ? 'var(--ok)' : I > 30 ? 'var(--warn)' : 'var(--bad)';
   const clk = $('clock'); clk.hidden = S.mode !== 'scream' || S.stage === 'idle';
   if (!clk.hidden){
-    $('clockTxt').textContent = S.song ? fmt(Math.max(0, S.clock)) + ' / ' + fmt(SONG_END) : fmtClock(S.clock);
+    $('clockTxt').textContent = S.ov ? fmt(Math.max(0, S.clock)) + ' / ' + fmt(OV_END) : S.song ? fmt(Math.max(0, S.clock)) + ' / ' + fmt(SONG_END) : fmtClock(S.clock);
     clk.classList.toggle('live', S.stage === 'scream' && !S.ended);
     $('clockSub').textContent = S.ended ? '학생들은 모두 광장으로 빠져나왔습니다'
+      : S.ov && S.stage === 'count' ? '해병대 군악대 녹음을 불러오는 중'
+      : S.ov && S.stage === 'scream' ? `가면 쓴 ${crowd.n}명이 함께 외치는 중 · 대포 ${S.ci} / ${CANNONS.length}`
       : S.song && S.stage === 'count' ? '번스타인·런던 심포니 녹음을 불러오는 중'
       : S.stage === 'count' ? '밤 12시가 되면 다 같이 30초 동안 외칩니다'
       : S.stage === 'scream' ? (S.song ? `${crowd.n}명 중 ${Math.round(S.sync*crowd.n)}명이 따라 부르는 중` : `남은 시간 ${Math.ceil(30 - S.clock)}초 · ${crowd.n}명 중 ${Math.round(S.sync*crowd.n)}명이 내 음을 따라 외치는 중`)
-      : S.song ? '합창이 끝났습니다' : '30초가 끝났습니다';
+      : S.ov ? '서곡이 끝났습니다' : S.song ? '합창이 끝났습니다' : '30초가 끝났습니다';
   }
   let msg = '';
-  if (S.mode === 'scream' && S.stage === 'count' && !S.song) msg = S.cents !== null && S.match > .6 ? '그 음입니다. 12시가 되면 그대로 외치세요.' : '12시 전에 목표 음을 미리 찾아 두세요.';
+  if (S.ov){
+    const dtc = S.ci < CANNONS.length ? CANNONS[S.ci] - S.clock : null;
+    if (S.stage === 'count') msg = '곧 시작합니다. 이어폰을 끼면 음악이 마이크에 섞이지 않습니다.';
+    else if (S.ended) msg = '';
+    else if (simT - S.lastHit < 0.9) msg = '명중! 건물이 크게 흔들립니다.';
+    else if (dtc !== null && dtc <= 1.0 && dtc > -0.4) msg = '지금! 크게!';
+    else if (S.ci === 0 && dtc > 1) msg = `음악에 맞춰 함께 외치세요. ${Math.ceil(dtc)}초 뒤 첫 대포가 터집니다.`;
+    else if (dtc !== null) msg = '다음 대포를 기다리세요. 터지는 순간 크게!';
+    else msg = '마지막 화음까지 외치세요.';
+  }
+  else if (S.mode === 'scream' && S.stage === 'count' && !S.song) msg = S.cents !== null && S.match > .6 ? '그 음입니다. 12시가 되면 그대로 외치세요.' : '12시 전에 목표 음을 미리 찾아 두세요.';
   else if (S.mode === 'scream' && S.stage === 'count') msg = yt.failed ? '유튜브 녹음을 불러오지 못해 합성 가이드로 부릅니다.' : '번스타인 녹음을 불러오는 중입니다. 이어폰을 끼세요.';
   else if (active() && !S.song){
     if (S.lv < .22) msg = S.mode === 'scream' ? '같이 외치세요! 당신이 음을 잡아야 사람들이 따라옵니다.' : '더 크게 외치세요.';
@@ -1708,16 +1806,18 @@ function showResult(kind, r){
   if (!$('result').hidden || r !== round) return;
   const scream = S.mode === 'scream';
   $('rTitle').textContent = kind === 'down' ? `${C.name} 도서관이 무너졌습니다` : `${C.name} 도서관이 버텼습니다`;
-  $('rTime').textContent = fmt(S.elapsed); $('rResLab').textContent = S.song ? '맞힌 음절' : '공진 유지'; $('rRes').textContent = S.song ? S.hits + ' / ' + S.total : Math.round(S.resT) + '초';
+  $('rTime').textContent = fmt(S.elapsed); $('rResLab').textContent = S.ov ? '맞힌 대포' : S.song ? '맞힌 음절' : '공진 유지'; $('rRes').textContent = S.ov ? S.hits + ' / ' + CANNONS.length : S.song ? S.hits + ' / ' + S.total : Math.round(S.resT) + '초';
   $('rThirdLab').textContent = scream ? '따라 외친 학생' : '최대 음량';
   $('rPeak').textContent = scream ? Math.round(S.maxFollow*crowd.n) + '명' : Math.round(S.peak*100) + '%';
-  const ratio = S.song ? (S.total ? S.hits/S.total : 0) : S.elapsed ? S.resT/S.elapsed : 0;
+  const ratio = (S.song || S.ov) ? (S.total ? S.hits/S.total : 0) : S.elapsed ? S.resT/S.elapsed : 0;
   if (kind === 'held'){
-    $('rLine').textContent = `구조 건전성 ${Math.ceil(S.I)}% 남은 채로 30초가 끝났습니다. 학생들은 다시 공부하러 자리로 돌아갑니다. ` +
+    if (S.ov) $('rLine').textContent = `대포 ${CANNONS.length}발이 다 터졌는데도 구조 건전성 ${Math.ceil(S.I)}%로 버텼습니다. 대포가 터지는 바로 그 순간에 더 크게 외쳐 보세요.`;
+    else $('rLine').textContent = `구조 건전성 ${Math.ceil(S.I)}% 남은 채로 30초가 끝났습니다. 학생들은 다시 공부하러 자리로 돌아갑니다. ` +
       (S.maxFollow < 0.4 ? (S.song ? '음을 오래 맞힐수록 따라 부르는 사람이 늘어납니다.' : '목표 음을 오래 붙잡을수록 따라 외치는 사람이 늘어납니다.') : '조금만 더 일찍 음을 잡았으면 됐습니다.');
     $('againBtn').textContent = '다음 시험기간에 다시';
   } else {
-    $('rLine').textContent = (scream ? `${crowd.n}명은 모두 광장으로 빠져나와 환호하고 있습니다. ` : '') +
+    if (S.ov) $('rLine').textContent = `가면을 쓴 ${crowd.n}명이 광장에 서서 불꽃놀이를 보고 있습니다. 대포 ${CANNONS.length}발 중 ${S.hits}발에 맞춰 외쳤습니다.`;
+    else $('rLine').textContent = (scream ? `${crowd.n}명은 모두 광장으로 빠져나와 환호하고 있습니다. ` : '') +
       (ratio > .6 ? (S.song ? '음을 거의 놓치지 않았습니다. 말러도 만족할 합창입니다.' : '음을 거의 놓치지 않았습니다. 교과서에 실릴 공진입니다.') : ratio > .3 ? '음이 몇 번 흔들렸지만 결국 건물이 먼저 졌습니다.' : '음보다 성량으로 밀어붙였습니다.');
     $('againBtn').textContent = scream ? '다음 시험기간에 다시' : '다시 세우기';
   }
@@ -1731,10 +1831,10 @@ function selectCampus(k){
   for (const b of $('campusPick').children) b.setAttribute('aria-pressed', b.dataset.k === k ? 'true' : 'false');
   $('campusInfo').textContent = C.info; $('tradition').textContent = C.tradition; $('startBtn').textContent = C.startLabel;
   stopCrowdAudio(); round++;
-  buildSite(); S.mode = 'scream'; S.song = false; S.stage = 'idle'; $('ytWrap').hidden = true; $('lyricBig').hidden = true; setSky('night'); reset(); setView('out');
+  buildSite(); S.mode = 'scream'; S.song = false; S.ov = false; S.stage = 'idle'; $('ytWrap').hidden = true; $('lyricBig').hidden = true; setSky('night'); reset(); setView('out');
 }
 function begin(mode){
-  S.kind = mode; S.song = mode === 'song'; if (S.song) mode = 'scream';
+  S.kind = mode; S.song = mode === 'song'; S.ov = mode === '1812'; if (S.song || S.ov) mode = 'scream';
   S.mode = mode; round++;
   setSky(mode === 'scream' ? 'night' : 'dusk');
   reset();
@@ -1744,6 +1844,7 @@ function begin(mode){
     ensureYT().then(p => { if (r !== round) return; p.seekTo(0, true); p.unMute(); p.setVolume(100); p.playVideo(); })
       .catch(() => { if (r !== round) return; $('ytWrap').hidden = true; startGuide(0.5); }); }
   else $('ytWrap').hidden = true;
+  if (S.ov){ S.clock = 0; ovStart(); }
 }
 async function onStart(mode){
   $('err').hidden = true;
@@ -1760,8 +1861,9 @@ $('campusPick').addEventListener('click', e => { const b = e.target.closest('but
 $('startBtn').addEventListener('click', () => onStart('scream'));
 $('soloBtn').addEventListener('click', () => onStart('solo'));
 $('songBtn').addEventListener('click', () => onStart('song'));
+$('ovBtn').addEventListener('click', () => onStart('1812'));
 $('againBtn').addEventListener('click', () => { stopCrowdAudio(); $('result').hidden = true; begin(S.kind || S.mode); });
-$('pickBtn').addEventListener('click', () => { stopCrowdAudio(); $('result').hidden = true; S.stage = 'idle'; S.song = false; $('ytWrap').hidden = true; $('lyricBig').hidden = true; round++; setSky('night'); reset(); setView('out'); $('intro').hidden = false; });
+$('pickBtn').addEventListener('click', () => { stopCrowdAudio(); $('result').hidden = true; S.stage = 'idle'; S.song = false; S.ov = false; $('ytWrap').hidden = true; $('lyricBig').hidden = true; round++; setSky('night'); reset(); setView('out'); $('intro').hidden = false; });
 
 selectCampus('postech');
 
