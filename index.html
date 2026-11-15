@@ -33,6 +33,9 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:
 #lvBar{background:linear-gradient(90deg,#5b7cff,#ff9a3c)}
 #ampBar{background:linear-gradient(90deg,#ffcf5a,#ff5d5d)}
 #intBar{background:var(--ok)}
+.lyr{font-size:17px;white-space:nowrap;overflow:hidden;color:var(--dim)}
+.lyr b{color:var(--ink);font-weight:700}
+.lyr b.hit{color:var(--ok)}
 .tuner{position:relative;height:14px;border-radius:4px;background:rgba(255,255,255,.1)}
 .tuner .zone{position:absolute;left:40%;width:20%;top:0;bottom:0;background:rgba(95,211,154,.3);border-radius:3px}
 .tuner .needle{position:absolute;top:-3px;bottom:-3px;width:3px;margin-left:-1.5px;left:50%;background:var(--ink);border-radius:2px;opacity:.25;transition:opacity .2s}
@@ -85,8 +88,8 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
     <div class="bar"><i id="lvBar"></i><b style="left:22%"></b></div>
   </div>
   <div class="card">
-    <div class="row"><span class="lab">내 음 / 건물 고유진동수</span></div>
-    <div class="row"><span class="val" id="myHz">— Hz</span><span class="sub" id="tgHz">목표 — Hz</span></div>
+    <div class="row"><span class="lab" id="tgHz">목표 음 —</span><span class="sub" id="myHz">내 음 —</span></div>
+    <div class="lyr" id="lyr"></div>
     <div class="tuner"><div class="zone"></div><div class="needle" id="needle"></div></div>
   </div>
   <div class="card">
@@ -114,9 +117,9 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
     <p class="campusInfo" id="campusInfo"></p>
     <p id="tradition"></p>
     <ul>
-      <li>건물마다 잘 흔들리는 음높이(고유진동수)가 있습니다. 계기판의 목표 Hz에 맞춰 "아—" 하고 길게 외치세요. 한 옥타브 위나 아래도 됩니다.</li>
-      <li>당신이 그 음을 붙잡고 있으면 난간의 학생들이 하나둘 같은 음으로 따라 외칩니다. 한 음으로 모일수록 진동이 빨리 쌓입니다.</li>
-      <li>금이 갈수록 건물이 물러져 고유진동수가 내려갑니다. 음을 따라 내리세요.</li>
+      <li>말러 교향곡 2번 「부활」 5악장의 마지막 합창 30초를 따라 부릅니다. "Aufersteh'n, ja aufersteh'n wirst du, mein Herz, in einem Nu!" 가이드 선율이 나오고, 한두 옥타브 아래로 불러도 됩니다.</li>
+      <li>음을 맞힌 음절마다 유리가 깨지고 진동이 쌓입니다. 크게, 음을 정확히 부를수록 빨리 무너집니다.</li>
+      <li>당신이 음을 맞히면 난간의 학생들이 하나둘 같은 선율로 따라 부릅니다. 이어폰을 쓰면 가이드 소리가 마이크에 섞이지 않습니다.</li>
     </ul>
     <div class="btns">
       <button id="startBtn">스크리밍 데이 시작</button>
@@ -132,7 +135,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
     <h2 id="rTitle">무너졌습니다</h2>
     <div class="stats">
       <div><span class="lab">걸린 시간</span><span class="val" id="rTime">0:00</span></div>
-      <div><span class="lab">공진 유지</span><span class="val" id="rRes">0초</span></div>
+      <div><span class="lab">맞힌 음절</span><span class="val" id="rRes">0</span></div>
       <div><span class="lab" id="rThirdLab">최대 음량</span><span class="val" id="rPeak">0%</span></div>
     </div>
     <p id="rLine"></p>
@@ -1232,13 +1235,35 @@ function jumpStep(dt){
 function reset(){
   buildLibrary(); shards.clear(); books.clear();
   for (const d of dusts){ d.max = 0; d.sp.visible = false; }
-  Object.assign(S, { ended:false, I:100, A:0, elapsed:0, resT:0, peak:0, maxFollow:0, shake:0, flash:0, sync:0, clock:-10, f0: Math.round(rnd(165, 245)) });
+  Object.assign(S, { ended:false, I:100, A:0, elapsed:0, resT:0, peak:0, maxFollow:0, shake:0, flash:0, sync:0, clock:-10, f0: Math.round(rnd(165, 245)), ni: -1, nm: 0, nd: 0, hits: 0, total: 0, lastHit: -9, loop: 0 });
   M.floor.emissiveIntensity = 0.3; M.shelf.emissiveIntensity = 0.4; M.ceil.emissiveIntensity = 0.55;
   boomLight.intensity = 0;
   BC.set(MAIN.cx, MAIN.nf*MAIN.fh*0.45, MAIN.cz); boomLight.position.copy(BC);
   if (S.mode === 'scream') placeBalcony();
 }
-const targetHz = () => S.f0 * (0.78 + 0.22*S.I/100);
+// 말러 교향곡 2번 5악장 연습번호 48 (Pesante, 합창 mit höchster Kraft) 소프라노 선율.
+// 1897 Hofmeister 초판 총보 204쪽(인터넷 아카이브 symphonieno200mahl)에서 옮김. Es장조 4/4, 32박 → 64BPM이면 30초
+const SONG = { bpm: 64, notes: [[75,3,'Auf'],[75,1,'er'],[75,2,'steh’n,'],[0,1,''],[75,1,'ja'],[80,3,'auf'],[80,1,'er'],[79,2,'steh’n'],[0,1,''],[79,1,'wirst'],
+  [77,2,'du,'],[75,2,'mein'],[82,2,'Herz,'],[79,2,'in'],[77,1,'ei'],[75,1,'–'],[74,1,'nem'],[75,1,'–'],[77,4,'Nu!']] };
+{ let b = 0; for (const n of SONG.notes){ n.t0 = b; b += n[1]; n.t1 = b; } SONG.len = b*60/SONG.bpm; }
+const NOTE_NAME = ['C','C♯','D','E♭','E','F','F♯','G','A♭','A','B♭','B'];
+const midiHz = m => 440*Math.pow(2, (m - 69)/12);
+const hzName = hz => NOTE_NAME[((Math.round(69 + 12*Math.log2(hz/440)) % 12) + 12) % 12];
+const songPos = () => S.mode === 'scream' ? clamp(S.clock, 0, SONG.len - 1e-3) : S.elapsed % SONG.len;
+function curNote(){
+  if (S.stage !== 'scream') return 0;
+  const b = songPos()*SONG.bpm/60, i = SONG.notes.findIndex(n => b >= n.t0 && b < n.t1);
+  return i < 0 ? SONG.notes.length - 1 : i;
+}
+const targetHz = () => { let k = curNote(); while (k > 0 && !SONG.notes[k][0]) k--; return midiHz(SONG.notes[k][0]); };
+function endNote(){   // 한 음절이 끝날 때: 그 음을 절반 가까이 맞혔으면 유리 몇 장이 한꺼번에 깨짐
+  const n = SONG.notes[S.ni]; if (!n || !n[0] || S.nd < 0.2) return;
+  S.total++;
+  if (S.nm/S.nd < 0.45) return;
+  S.hits++; S.lastHit = simT; S.A = Math.min(1.4, S.A + 0.1);
+  const c = pieces.filter(p => p.glass && !p.shattered && alive(p));
+  for (let k=0; k<3 && c.length; k++){ const pc = c.splice(Math.floor(Math.random()*c.length), 1)[0]; pc.crack = 1; pc.glass.material = pc.crackMat; shatter(pc); }
+}
 const swayX = y => S.A * Math.sin(S.phase - y*0.045) * 1.25 * Math.pow(clamp(y/28, 0, 1.6), 1.3);
 
 /* ================= 부서짐 ================= */
@@ -1308,7 +1333,7 @@ function checkSupport(dt){
   }
 }
 function explode(){
-  S.ended = true; S.I = 0; S.flash = 1; S.shake = 2.2;
+  S.ended = true; S.I = 0; S.flash = 1; S.shake = 2.2; stopGuide();
   for (const pc of pieces) if (pc.state === 'fix'){
     detach(pc);
     const d = tv.copy(pc.obj.position).sub(BC); const dist = Math.max(4, d.length()); d.normalize();
@@ -1345,7 +1370,7 @@ async function startMic(){
   corr = new Float32Array(Math.floor(actx.sampleRate/70) + 4);
 }
 function detectPitch(b, sr){
-  const n = b.length, minL = Math.floor(sr/900), maxL = Math.min(Math.floor(sr/70), n >> 1), m = n - maxL;
+  const n = b.length, minL = Math.floor(sr/1100), maxL = Math.min(Math.floor(sr/70), n >> 1), m = n - maxL;
   let e0 = 0; for (let i=0;i<m;i++) e0 += b[i]*b[i];
   if (e0 < 1e-6) return 0;
   let max = 0;
@@ -1376,6 +1401,26 @@ function boom(){
   lp.frequency.setValueAtTime(1300, t); lp.frequency.exponentialRampToValueAtTime(60, t + 2.6);
   const g = actx.createGain(); g.gain.value = 1.4;
   src.connect(lp).connect(g).connect(actx.destination); src.start();
+}
+let guide = null;
+function startGuide(){   // 가이드 선율: 한 옥타브 아래 오르간 비슷한 소리
+  if (!actx || window.__fake) return;
+  stopGuide();
+  const t0 = actx.currentTime + 0.05, bt = 60/SONG.bpm, out = actx.createGain(); out.gain.value = 0.07; out.connect(actx.destination);
+  const nodes = [];
+  for (const n of SONG.notes){ if (!n[0]) continue;
+    const f = midiHz(n[0])/2, a = t0 + n.t0*bt, b = t0 + n.t1*bt;
+    for (const [mul, type, gv] of [[1, 'triangle', 0.6], [2, 'sine', 0.3], [0.5, 'sine', 0.35]]){
+      const o = actx.createOscillator(), g = actx.createGain(); o.type = type; o.frequency.value = f*mul;
+      g.gain.setValueAtTime(0.0001, a); g.gain.linearRampToValueAtTime(gv, a + 0.06); g.gain.setValueAtTime(gv, b - 0.09); g.gain.linearRampToValueAtTime(0.0001, b - 0.01);
+      o.connect(g).connect(out); o.start(a); o.stop(b); nodes.push(o); } }
+  guide = { out, nodes };
+}
+function stopGuide(){
+  if (!guide || !actx) return;
+  const t = actx.currentTime; guide.out.gain.setTargetAtTime(0.0001, t, 0.05);
+  for (const o of guide.nodes){ try { o.stop(t + 0.3); } catch (e) {} }
+  guide = null;
 }
 let crowdAudio = null;
 function startCrowdAudio(dur, vol = 0.14){
@@ -1411,6 +1456,7 @@ function steerCrowdAudio(){
   }
 }
 function stopCrowdAudio(){
+  stopGuide();
   if (!crowdAudio || !actx) return;
   const t = actx.currentTime, g = crowdAudio.out.gain;
   g.cancelScheduledValues(t); g.setValueAtTime(Math.max(g.value, 0.0001), t); g.linearRampToValueAtTime(0.0001, t + 0.4);
@@ -1430,10 +1476,10 @@ function update(dt){
   if (v.hz > 0){ S.hz = S.hz ? S.hz*Math.pow(v.hz/S.hz, Math.min(1, dt*10)) : v.hz; S.noHz = 0; }
   else if ((S.noHz += dt) > 0.25) S.hz = 0;
   const f = targetHz(); S.cents = null; S.match = 0;
-  if (S.hz > 0){ let d = 1200*Math.log2(S.hz/f); d = ((d % 1200) + 1800) % 1200 - 600; S.cents = d; S.match = Math.exp(-((d/220)**2)); }
+  if (S.hz > 0){ let d = 1200*Math.log2(S.hz/f); d = ((d % 1200) + 1800) % 1200 - 600; S.cents = d; S.match = Math.exp(-((d/140)**2)); }
 
   if (S.mode === 'scream' && !S.ended){
-    if (S.stage === 'count'){ S.clock += dt; if (S.clock >= 0){ S.clock = 0; S.stage = 'scream'; startCrowdAudio(30); } }
+    if (S.stage === 'count'){ S.clock += dt; if (S.clock >= 0){ S.clock = 0; S.stage = 'scream'; startCrowdAudio(30); startGuide(); } }
     else if (S.stage === 'scream'){ S.clock += dt;
       if (S.clock >= 30){ S.clock = 30; S.stage = 'over'; stopCrowdAudio(); const r = round; setTimeout(() => showResult('held', r), 1200); } }
   }
@@ -1449,6 +1495,9 @@ function update(dt){
   S.A = clamp(S.A + (0.36*(S.drive*(0.4 + 1.6*S.match) + crowdTerm) - 0.6*S.A)*dt, 0, 1.4);
   S.phase += dt*Math.PI*2*1.1;
   if (on){
+    const ni = curNote(); if (ni !== S.ni){ endNote(); S.ni = ni; S.nm = 0; S.nd = 0; }
+    S.nd += dt; if (S.match > 0.6 && S.drive > 0.1 && SONG.notes[ni][0]) S.nm += dt;
+    if (S.mode === 'solo' && Math.floor(S.elapsed/SONG.len) !== S.loop){ S.loop = Math.floor(S.elapsed/SONG.len); startGuide(); }
     S.elapsed += dt; S.peak = Math.max(S.peak, S.lv);
     if (S.match > 0.6 && S.drive > 0.1) S.resT += dt;
     const over = S.A - 0.1; if (over > 0) S.I -= 6*Math.pow(over, 1.3)*dt;
@@ -1497,8 +1546,13 @@ function fmtClock(sec){
 function hud(){
   $('lvBar').style.width = (S.lv*100).toFixed(1) + '%';
   $('lvTxt').textContent = S.lv < .22 ? '조용함' : S.lv < .45 ? '말소리' : S.lv < .7 ? '고함' : '함성';
-  $('myHz').textContent = S.hz ? Math.round(S.hz) + ' Hz' : '— Hz';
-  $('tgHz').textContent = '목표 ' + Math.round(targetHz()) + ' Hz';
+  $('tgHz').textContent = '목표 음 ' + hzName(targetHz()); $('myHz').textContent = '내 음 ' + (S.hz ? hzName(S.hz) : '—');
+  { const i = curNote(), ly = $('lyr'), key = i + ':' + (simT - S.lastHit < 0.8);
+    if (ly.dataset.k !== key){ ly.dataset.k = key; ly.textContent = '';
+      let shown = 0;
+      for (let k = i; k < SONG.notes.length && shown < 6; k++){ const t = SONG.notes[k][2]; if (!t) continue;
+        const el = document.createElement(k === i ? 'b' : 'span'); if (k === i && simT - S.lastHit < 0.8) el.className = 'hit';
+        el.textContent = (shown ? ' ' : '') + t; ly.appendChild(el); shown++; } } }
   const nd = $('needle');
   if (S.cents === null) nd.style.opacity = .25;
   else { nd.style.opacity = 1; nd.style.left = (50 + S.cents/600*50) + '%'; nd.style.background = S.match > .6 ? 'var(--ok)' : 'var(--ink)'; }
@@ -1512,16 +1566,18 @@ function hud(){
     $('clockTxt').textContent = fmtClock(S.clock);
     clk.classList.toggle('live', S.stage === 'scream' && !S.ended);
     $('clockSub').textContent = S.ended ? '학생들은 모두 광장으로 빠져나왔습니다'
-      : S.stage === 'count' ? '밤 12시가 되면 다 같이 30초 동안 외칩니다'
-      : S.stage === 'scream' ? `남은 시간 ${Math.ceil(30 - S.clock)}초 · ${crowd.n}명 중 ${Math.round(S.sync*crowd.n)}명이 내 음을 따라 외치는 중`
+      : S.stage === 'count' ? '밤 12시가 되면 다 같이 30초 동안 부릅니다'
+      : S.stage === 'scream' ? `남은 시간 ${Math.ceil(30 - S.clock)}초 · ${crowd.n}명 중 ${Math.round(S.sync*crowd.n)}명이 따라 부르는 중`
       : '30초가 끝났습니다';
   }
   let msg = '';
-  if (S.mode === 'scream' && S.stage === 'count') msg = S.cents !== null && S.match > .6 ? '그 음입니다. 12시가 되면 그대로 외치세요.' : '12시 전에 목표 음을 미리 찾아 두세요.';
+  if (S.mode === 'scream' && S.stage === 'count') msg = S.cents !== null && S.match > .6 ? '그 음입니다. 12시가 되면 "Auf"부터 부르세요.' : '12시가 되면 첫 음 E♭ "Auf"부터 따라 부릅니다. 미리 음을 찾아 두세요.';
   else if (active()){
-    if (S.lv < .22) msg = S.mode === 'scream' ? '같이 외치세요! 당신이 음을 잡아야 사람들이 따라옵니다.' : '더 크게 외치세요.';
-    else if (S.cents === null) msg = '"아—" 하고 한 음으로 길게 끌어 주세요.';
-    else if (S.match > .6) msg = I > 60 ? '공진 중. 그 음 그대로 유지하세요.' : I > 30 ? '외벽이 쏟아집니다. 음이 내려가는 걸 따라가세요.' : '곧 무너집니다. 멈추지 마세요!';
+    if (!SONG.notes[curNote()][0]) msg = '숨 쉬세요.';
+    else if (simT - S.lastHit < 0.8) msg = '맞았습니다! 유리가 깨집니다.';
+    else if (S.lv < .22) msg = S.mode === 'scream' ? '같이 부르세요! 당신이 음을 맞혀야 사람들이 따라 부릅니다.' : '더 크게 부르세요.';
+    else if (S.cents === null) msg = '가사에 맞춰 음을 길게 끌어 주세요.';
+    else if (S.match > .6) msg = I > 60 ? '그 음입니다. 다음 음으로 넘어가세요.' : I > 30 ? '외벽이 쏟아집니다. 끝까지 부르세요.' : '곧 무너집니다. 멈추지 마세요!';
     else msg = S.cents < 0 ? '조금 더 높게.' : '조금 더 낮게.';
   }
   $('hint').textContent = msg;
@@ -1533,17 +1589,17 @@ function showResult(kind, r){
   if (!$('result').hidden || r !== round) return;
   const scream = S.mode === 'scream';
   $('rTitle').textContent = kind === 'down' ? `${C.name} 도서관이 무너졌습니다` : `${C.name} 도서관이 버텼습니다`;
-  $('rTime').textContent = fmt(S.elapsed); $('rRes').textContent = Math.round(S.resT) + '초';
+  $('rTime').textContent = fmt(S.elapsed); $('rRes').textContent = S.hits + ' / ' + S.total;
   $('rThirdLab').textContent = scream ? '따라 외친 학생' : '최대 음량';
   $('rPeak').textContent = scream ? Math.round(S.maxFollow*crowd.n) + '명' : Math.round(S.peak*100) + '%';
-  const ratio = S.elapsed ? S.resT/S.elapsed : 0;
+  const ratio = S.total ? S.hits/S.total : 0;
   if (kind === 'held'){
     $('rLine').textContent = `구조 건전성 ${Math.ceil(S.I)}% 남은 채로 30초가 끝났습니다. 학생들은 다시 공부하러 자리로 돌아갑니다. ` +
-      (S.maxFollow < 0.4 ? '목표 음을 오래 붙잡을수록 따라 외치는 사람이 늘어납니다.' : '조금만 더 일찍 음을 잡았으면 됐습니다.');
+      (S.maxFollow < 0.4 ? '음을 오래 맞힐수록 따라 부르는 사람이 늘어납니다.' : '조금만 더 일찍 음을 잡았으면 됐습니다.');
     $('againBtn').textContent = '다음 시험기간에 다시';
   } else {
     $('rLine').textContent = (scream ? `${crowd.n}명은 모두 광장으로 빠져나와 환호하고 있습니다. ` : '') +
-      (ratio > .6 ? '음을 거의 놓치지 않았습니다. 교과서에 실릴 공진입니다.' : ratio > .3 ? '음이 몇 번 흔들렸지만 결국 건물이 먼저 졌습니다.' : '음보다 성량으로 밀어붙였습니다.');
+      (ratio > .6 ? '음을 거의 놓치지 않았습니다. 말러도 만족할 합창입니다.' : ratio > .3 ? '음이 몇 번 흔들렸지만 결국 건물이 먼저 졌습니다.' : '음보다 성량으로 밀어붙였습니다.');
     $('againBtn').textContent = scream ? '다음 시험기간에 다시' : '다시 세우기';
   }
   $('result').hidden = false; $('againBtn').focus();
@@ -1563,7 +1619,7 @@ function begin(mode){
   setSky(mode === 'scream' ? 'night' : 'dusk');
   reset();
   if (mode === 'scream'){ S.stage = 'count'; setView('in'); }
-  else { S.stage = 'scream'; setView('out'); }
+  else { S.stage = 'scream'; setView('out'); startGuide(); }
 }
 async function onStart(mode){
   $('err').hidden = true;
