@@ -1422,8 +1422,12 @@ const RHYME = [[1.4, 'Remember, remember the fifth of November,', '기억하라,
 const intro = { el: null, timers: [] };
 let ttsVoice = null;
 function pickVoice(){ if (!('speechSynthesis' in window)) return; const vs = speechSynthesis.getVoices(); if (!vs.length) return;
-  const gb = vs.filter(v => /en[-_]GB/i.test(v.lang)), fem = /female|serena|kate|stephanie|martha|libby|sonia|hazel|susan|fiona|moira|tessa|karen/i;
-  ttsVoice = gb.find(v => fem.test(v.name)) || gb[0] || vs.find(v => /^en/i.test(v.lang) && fem.test(v.name)) || vs.find(v => /^en/i.test(v.lang)) || null; }
+  // 자연스러운 순서: 맥 고음질(Premium → Enhanced, 영국 영어 여성 우선) → 온라인 고음질(Google·Natural·Neural) → 영국 영어 기본 → 영어 아무거나
+  //  재미용 음성(Grandma·Grandpa·Rocko·Bells 등)은 고르지 않음
+  const fem = /female|serena|kate|stephanie|martha|libby|sonia|jamie|hazel|susan|fiona|moira|tessa|karen/i, toy = /grandma|grandpa|rocko|eddy|flo|reed|sandy|shelley|bells|bahh|boing|bubbles|cellos|wobble|jester|organ|superstar|trinoids|whisper|zarvox|bad news|good news|junior|albert|fred|ralph/i;
+  const en = vs.filter(v => /^en/i.test(v.lang) && !toy.test(v.name)), gb = en.filter(v => /en[-_]GB/i.test(v.lang));
+  const tier = re => gb.find(v => re.test(v.name) && fem.test(v.name)) || gb.find(v => re.test(v.name)) || en.find(v => re.test(v.name));
+  ttsVoice = tier(/premium/i) || tier(/enhanced/i) || tier(/google|natural|neural|online/i) || gb.find(v => fem.test(v.name)) || gb[0] || en[0] || null; }
 if ('speechSynthesis' in window){ pickVoice(); speechSynthesis.addEventListener && speechSynthesis.addEventListener('voiceschanged', pickVoice); }
 function startIntro(){
   stopIntro();
@@ -1432,7 +1436,7 @@ function startIntro(){
   intro.el.currentTime = 0; const p = intro.el.play(); if (p && p.catch) p.catch(() => {});
   if ('speechSynthesis' in window){
     if (!ttsVoice) pickVoice();
-    for (const [at, line] of RHYME) intro.timers.push(setTimeout(() => { const u = new SpeechSynthesisUtterance(line); u.lang = 'en-GB'; if (ttsVoice) u.voice = ttsVoice; u.rate = 0.88; u.pitch = 1; u.volume = 1; speechSynthesis.speak(u); }, at*1000));
+    for (const [at, line] of RHYME) intro.timers.push(setTimeout(() => { const u = new SpeechSynthesisUtterance(line); u.lang = 'en-GB'; if (ttsVoice) u.voice = ttsVoice; u.rate = 0.9; u.pitch = 1; u.volume = 1; speechSynthesis.speak(u); }, at*1000));
   }
 }
 function stopIntro(){
