@@ -1298,7 +1298,7 @@ function jumpStep(dt){
 function reset(){
   buildLibrary(); shards.clear(); books.clear();
   for (const d of dusts){ d.max = 0; d.sp.visible = false; }
-  Object.assign(S, { ended:false, I:100, A:0, elapsed:0, resT:0, peak:0, maxFollow:0, shake:0, flash:0, sync:0, clock:-10, f0: Math.round(rnd(165, 245)), ni: -1, nm: 0, nd: 0, hits: 0, total: 0, lastHit: -9, loop: 0, hitSet: new Set(), trail: [], ci: 0, cpk: 0, fwT: 0, cres: [] });
+  Object.assign(S, { ended:false, I:100, A:0, elapsed:0, resT:0, peak:0, maxFollow:0, shake:0, flash:0, sync:0, clock:-10, f0: Math.round(rnd(165, 245)), nj: 0, samp: [], songT0: -99, hzBuf: [], hits: 0, total: 0, lastHit: -9, loop: 0, hitSet: new Set(), trail: [], ci: 0, cpk: 0, fwT: 0, cres: [] });
   FW.clear();
   M.floor.emissiveIntensity = 0.3; M.shelf.emissiveIntensity = 0.4; M.ceil.emissiveIntensity = 0.55;
   boomLight.intensity = 0;
@@ -1439,11 +1439,15 @@ function curNote(){   // 지금 불러야 할 음표 번호 (쉼이면 -1)
 function lastNote(){ const t = songRaw(); let k = -1; for (let i=0;i<NOTES.length;i++) if (NOTES[i].t0 <= t) k = i; return k < 0 ? 0 : k; }
 const targetHz = () => S.song ? midiHz(NOTES[lastNote()].m) : S.f0 * (0.78 + 0.22*S.I/100);
 const curPhrase = () => { const t = songRaw(); return PHRASES.findIndex(p => t >= p[0] && t < p[1]); };
-function endNote(){   // 한 음표가 끝날 때: 그 음을 절반 가까이 맞혔으면 유리 몇 장이 한꺼번에 깨짐
-  const n = NOTES[S.ni]; if (!n || S.nd < 0.2) return;
+function judgeNote(i){   // 음표 하나가 끝난 뒤: 그 음을 넉넉히 맞혔으면 유리 몇 장이 한꺼번에 깨짐
+  const n = NOTES[i]; if (!n) return;
+  if (n.t0 < S.songT0) return;   // 노래를 시작하기 전에 지나간 음표는 세지 않음
+  let ok = 0;
+  for (const [t, m, dt] of S.samp){ if (m === null || t < n.t0 - 0.15 || t > n.t1 + 0.25) continue;
+    let d = m - n.m; d = ((d % 12) + 18) % 12 - 6; if (Math.abs(d) <= 1.0) ok += dt; }
   S.total++;
-  if (S.nm/S.nd < 0.45) return;
-  S.hits++; S.hitSet.add(S.ni); S.lastHit = simT; S.A = Math.min(1.4, S.A + 0.1);
+  if (ok < Math.min(0.35*(n.t1 - n.t0), 1.2)) return;
+  S.hits++; S.hitSet.add(i); S.lastHit = simT; S.A = Math.min(1.4, S.A + 0.1);
   const c = pieces.filter(p => p.glass && !p.shattered && alive(p));
   for (let k=0; k<3 && c.length; k++){ const pc = c.splice(Math.floor(Math.random()*c.length), 1)[0]; pc.crack = 1; pc.glass.material = pc.crackMat; shatter(pc); }
 }
@@ -1681,10 +1685,13 @@ function update(dt){
   simT += dt;
   const v = readVoice();
   S.lv += (v.level - S.lv)*Math.min(1, dt*(v.level > S.lv ? 14 : 5));
-  if (v.hz > 0){ S.hz = S.hz ? S.hz*Math.pow(v.hz/S.hz, Math.min(1, dt*10)) : v.hz; S.noHz = 0; }
-  else if ((S.noHz += dt) > 0.25) S.hz = 0;
+  if (v.hz > 0){   // 최근 7프레임 중앙값으로 튀는 값을 버리고, 그다음 지수 평활 (노래 모드는 조금 더 부드럽게)
+    const hb = S.hzBuf || (S.hzBuf = []); hb.push(v.hz); if (hb.length > 7) hb.shift();
+    const med = hb.length >= 3 ? hb.slice().sort((a, b) => a - b)[hb.length >> 1] : v.hz;
+    S.hz = S.hz ? S.hz*Math.pow(med/S.hz, Math.min(1, dt*(S.song ? 7 : 10))) : med; S.noHz = 0; }
+  else if ((S.noHz += dt) > 0.25){ S.hz = 0; S.hzBuf = []; }
   const f = targetHz(); S.cents = null; S.match = 0;
-  if (S.hz > 0){ let d = 1200*Math.log2(S.hz/f); d = ((d % 1200) + 1800) % 1200 - 600; S.cents = d; S.match = Math.exp(-((d/(S.song ? 140 : 220))**2)); }
+  if (S.hz > 0){ let d = 1200*Math.log2(S.hz/f); d = ((d % 1200) + 1800) % 1200 - 600; S.cents = d; S.match = Math.exp(-((d/(S.song ? 200 : 220))**2)); }
   if (S.ov){ S.match = S.lv > 0.3 ? 0.85 : 0.1; S.cents = null; }
 
   if (S.ov && !S.ended){   // 1812 서곡: 녹음 재생 시각이 곧 시계, 대포가 터지는 순간 함성이 크면 명중
@@ -1703,7 +1710,7 @@ function update(dt){
   FW.update(dt);
   if (S.song && !S.ended){   // 말러 합창: 녹음 재생 시각이 곧 시계
     ytTick();
-    if (S.stage === 'count'){ if ((yt.ok && yt.playing) || guide || window.__fake){ S.stage = 'scream'; } }
+    if (S.stage === 'count'){ if ((yt.ok && yt.playing) || guide || window.__fake){ S.stage = 'scream'; S.songT0 = songRaw() - 0.2; } }
     if (S.stage === 'scream'){ S.clock = window.__fake ? S.clock + dt : songRaw();
       if (S.clock >= SONG_END){ S.stage = 'over'; const r = round; setTimeout(() => showResult('held', r), 1200); } }
   }
@@ -1724,8 +1731,10 @@ function update(dt){
   S.A = clamp(S.A + (0.36*(S.drive*(0.4 + 1.6*S.match) + crowdTerm) - 0.6*S.A)*dt, 0, 1.4);
   S.phase += dt*Math.PI*2*1.1;
   if (on){
-    if (S.song){ const ni = curNote(); if (ni !== S.ni){ endNote(); S.ni = ni; S.nm = 0; S.nd = 0; }
-      S.nd += dt; if (S.match > 0.6 && S.drive > 0.1 && ni >= 0) S.nm += dt; }
+    if (S.song){   // 판정: 음표 앞 0.15초~뒤 0.25초 사이에 반음 안쪽으로 낸 시간이 음 길이의 35%를 넘으면 명중
+      const t = songRaw(), my = S.hz > 0 && S.drive > 0.1 ? 69 + 12*Math.log2(S.hz/440) : null;
+      S.samp.push([t, my, dt]); while (S.samp.length && S.samp[0][0] < t - 12) S.samp.shift();
+      while (S.nj < NOTES.length && t > NOTES[S.nj].t1 + 0.25){ judgeNote(S.nj); S.nj++; } }
     S.elapsed += dt; S.peak = Math.max(S.peak, S.lv);
     if (S.match > 0.6 && S.drive > 0.1) S.resT += dt;
     const over = S.A - 0.1; if (over > 0) S.I -= 6*Math.pow(over, 1.3)*dt*(S.songId === 'kaiser' ? (S.clock < SONG_KEY ? 0.2 : 0.42) : S.song && S.clock < SONG_KEY ? 0.13 : S.ov ? 0.15 : 1);
