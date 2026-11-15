@@ -1096,7 +1096,7 @@ function finishPlace(P, where){
   crowd.mask.count = crowd.n; crowd.hat.count = crowd.n;
 }
 const cm = new THREE.Matrix4(), cm2 = new THREE.Matrix4(), cr = new THREE.Matrix4(), cq = new THREE.Quaternion(), cv3 = new THREE.Vector3(), ONE = new THREE.Vector3(1,1,1);
-const OFF_B = new THREE.Matrix4().makeTranslation(0, 0.71, 0), OFF_H = new THREE.Matrix4().makeTranslation(0, 1.58, 0);
+const OFF_B = new THREE.Matrix4().makeTranslation(0, 0.71, 0), OFF_H = new THREE.Matrix4().makeTranslation(0, 1.58, 0), hm = new THREE.Matrix4(), hm2 = new THREE.Matrix4();
 function updateCrowd(t){
   const show = S.mode === 'scream';
   for (const k of ['body','head','armL','armR']) crowd[k].visible = show;
@@ -1107,7 +1107,14 @@ function updateCrowd(t){
     const p = crowd.p[i];
     let x = p.x, z = p.z, arm = 0.1, bounce = 0, yaw = p.yaw;
     if (crowd.where === 'balcony'){ const s = swayX(p.y); x += s; z += s*0.35; }
-    if (crowd.where === 'plaza'){ arm = 2.6 + 0.25*Math.sin(t*6 + p.ph); bounce = Math.abs(Math.sin(t*5 + p.ph))*0.4; }
+    let armL = null, tilt = 0, hatK = 0;
+    if (crowd.where === 'plaza'){   // 광장 연출: 멈춰 서서 올려다보다가 → 일제히 모자를 벗어 머리 위로 → 다 같이 같은 박자로 흔들림
+      const te = t - (S.endT || t);
+      tilt = 0.32*smooth(te/0.8);
+      hatK = smooth((te - 1.8 - p.rank*0.25)/0.9);
+      arm = 0.1 + 2.85*hatK; armL = 0.1;
+      if (te > 3.2){ const sw = Math.sin((te - 3.2)*2.2); yaw = p.yaw + 0.05*sw; arm += 0.12*sw; bounce = 0.04*Math.max(0, sw); }
+    }
     else if (screaming){
       const fol = p.rank < S.sync;
       arm = fol ? 2.55 + 0.25*Math.sin(t*7 + p.ph) : p.armBase + 0.15*Math.sin(t*3 + p.ph);
@@ -1116,9 +1123,12 @@ function updateCrowd(t){
     cq.setFromAxisAngle(UP, yaw);
     cm.compose(cv3.set(x, p.y + bounce, z), cq, ONE);
     crowd.body.setMatrixAt(i, cm2.multiplyMatrices(cm, OFF_B));
-    crowd.head.setMatrixAt(i, cm2.multiplyMatrices(cm, OFF_H));
-    crowd.mask.setMatrixAt(i, cm2.multiplyMatrices(cm, OFF_H)); crowd.hat.setMatrixAt(i, cm2.multiplyMatrices(cm, OFF_H));
-    cr.makeRotationZ(-arm); cr.setPosition(-0.26, 1.36, 0); crowd.armL.setMatrixAt(i, cm2.multiplyMatrices(cm, cr));
+    hm.makeRotationX(-tilt); hm.setPosition(0, 1.58, 0);   // 고개를 들어 올려다봄
+    crowd.head.setMatrixAt(i, cm2.multiplyMatrices(cm, hm)); crowd.mask.setMatrixAt(i, cm2.multiplyMatrices(cm, hm));
+    if (hatK > 0){ const ra = arm, hx = 0.26 + 0.62*Math.sin(ra), hy = 1.36 - 0.62*Math.cos(ra);   // 오른손에 든 모자 (머리 위 → 손끝)
+      hm2.makeRotationZ(-0.25*hatK); hm2.setPosition(hx*hatK, (1.58 + (hy + 0.02 - 1.58)*hatK), 0); crowd.hat.setMatrixAt(i, cm2.multiplyMatrices(cm, hm2)); }
+    else crowd.hat.setMatrixAt(i, cm2.multiplyMatrices(cm, hm));
+    cr.makeRotationZ(-(armL ?? arm)); cr.setPosition(-0.26, 1.36, 0); crowd.armL.setMatrixAt(i, cm2.multiplyMatrices(cm, cr));
     cr.makeRotationZ(arm);  cr.setPosition(0.26, 1.36, 0);  crowd.armR.setMatrixAt(i, cm2.multiplyMatrices(cm, cr));
   }
   for (const k of ['body','head','armL','armR']) crowd[k].instanceMatrix.needsUpdate = true;
@@ -1580,7 +1590,7 @@ function checkSupport(dt){
   }
 }
 function explode(){
-  S.ended = true; S.I = 0; S.flash = 1; S.shake = 2.2; stopGuide(); S.slowmo = 1.5; S.fever = false;
+  S.ended = true; S.I = 0; S.flash = 1; S.shake = 2.2; stopGuide(); S.slowmo = 1.5; S.fever = false; S.endT = simT;
   for (const pc of pieces) if (pc.state === 'fix'){
     detach(pc);
     const d = tv.copy(pc.obj.position).sub(BC); const dist = Math.max(4, d.length()); d.normalize();
