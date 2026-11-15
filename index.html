@@ -1416,9 +1416,11 @@ function ovStop(){ if (OV.el){ try { OV.el.pause(); } catch (e) {} } stopIntro()
 // 서곡 앞 인트로(건물 밖에서 천천히 다가감): 실제 빅벤 녹음 — 1945년 1월 1일 자정 라디오 오라녜 중계(퍼블릭 도메인, 위키미디어 공용
 // "Westminster chimes (1 January 1945).wav")에서 시보 타종 세 번(원본 21~37초)과 웨스트민스터 차임(원본 0~20.7초)을 잘라 이어 붙임 → audio/bigben-intro.m4a
 // 타종 사이사이 영국 전래 동요 「Remember, remember the fifth of November」(퍼블릭 도메인) 낭독
-const OV_INTRO = 37.0, CHIME_AT = 16.3;   // 타종 0.3·4.4·8.55초, 차임 16.3초부터
-const RHYME = [[1.4, 'Remember, remember the fifth of November,', '기억하라, 기억하라, 11월 5일을'], [5.5, 'Gunpowder, treason and plot.', '화약과 반역과 음모를.'],
-  [9.6, 'I see no reason why gunpowder treason', '화약 반역 사건이'], [12.6, 'should ever be forgot.', '잊혀야 할 까닭은 하나도 없다.']];
+const OV_INTRO = 39.4, CHIME_AT = 18.7;   // 타종 0.3·4.4·8.55초, 2.4초 쉼, 차임 18.7초부터
+// 자막: 전래 동요 네 줄(퍼블릭 도메인). V_AT = 영상에서 그 줄을 말하기 시작하는 초(소리 분석), at = 인트로 시각(유튜브를 못 쓸 때 낭독·자막 기준)
+const RHYME = [[6.2, 'Remember, remember, the fifth of November,', '기억하라, 기억하라, 11월 5일을', 39.6], [9.0, 'the gunpowder treason and plot.', '화약 반역과 음모를.', 42.4],
+  [13.4, 'I know of no reason why the gunpowder treason', '화약 반역 사건이', 46.8], [15.8, 'should ever be forgot.', '잊혀야 할 까닭은 하나도 없다.', 49.2]];
+const RHYME_END = 18.3, V_END = 51.4;
 const intro = { el: null, timers: [] };
 let ttsVoice = null;
 function pickVoice(){ if (!('speechSynthesis' in window)) return; const vs = speechSynthesis.getVoices(); if (!vs.length) return;
@@ -1431,7 +1433,7 @@ function pickVoice(){ if (!('speechSynthesis' in window)) return; const vs = spe
 if ('speechSynthesis' in window){ pickVoice(); speechSynthesis.addEventListener && speechSynthesis.addEventListener('voiceschanged', pickVoice); }
 // 낭독: 사용자가 올린 유튜브 영상 「Remember Remember the 5th of November - V for Vendetta」의 34초부터를 유튜브 공식 퍼가기 플레이어로 재생
 // (음원을 따로 떼어 레포에 넣지 않음). TRAILER_AT = 영상에서 시작할 초, TRAILER_LEN = 틀 길이
-const TRAILER_ID = 'RS2HLC0sipA', TRAILER_AT = 34, TRAILER_LEN = 15, TRAILER_START = 0.6;   // 인트로 0.6초부터 15초 동안 (빅벤 타종이 뒤에 깔림)
+const TRAILER_ID = 'RS2HLC0sipA', TRAILER_AT = 34, TRAILER_LEN = V_END - 34, TRAILER_START = 0.6;   // 인트로 0.6초부터 동요가 끝나는 51.4초까지 (빅벤 타종이 뒤에 깔림)
 function speakRhyme(){   // 유튜브를 못 쓸 때만: 브라우저 음성으로 낭독
   if (!('speechSynthesis' in window)) return;
   if (!ttsVoice) pickVoice();
@@ -1447,7 +1449,7 @@ function startIntro(){
   ensureYT().then(pl => { if (r !== round || !(S.ov && S.stage === 'count')) return;
       $('ytWrap').hidden = false; intro.yt = true;
       pl.loadVideoById({ videoId: TRAILER_ID, startSeconds: TRAILER_AT, endSeconds: TRAILER_AT + TRAILER_LEN }); pl.unMute(); pl.setVolume(100);
-      intro.timers.push(setTimeout(() => { if (r !== round) return; try { pl.pauseVideo(); } catch (e) {} $('ytWrap').hidden = true; intro.yt = false; }, (TRAILER_LEN + 1)*1000)); })
+      intro.timers.push(setTimeout(() => { if (r !== round) return; try { pl.pauseVideo(); } catch (e) {} $('ytWrap').hidden = true; intro.yt = false; }, (TRAILER_LEN + 3)*1000)); })
     .catch(() => { if (r !== round) return; if (intro.el) intro.el.volume = 1; speakRhyme(); });
 }
 function stopIntro(){
@@ -1855,7 +1857,11 @@ function drawCannons(g, W, H){   // 1812: 오른쪽에서 대포 표시가 흘�
 function drawRoll(){   // 노래방식 음정 띠: 오른쪽에서 음표 막대가 흘러와 세로선(지금)을 지나감, 내 음은 점과 꼬리
   const cv = $('roll'); cv.hidden = !(S.song || S.ov) || S.stage === 'idle';
   if (cv.hidden || (S.ov && !(S.stage === 'count' && S.clock < 0))) $('lyricBig').hidden = true;
-  else if (S.ov){ const it = S.clock + OV_INTRO; let k = -1; RHYME.forEach((r, i) => { if (it >= r[0]) k = i; }); if (it > CHIME_AT + 1.5) k = -1; 
+  else if (S.ov){ const it = S.clock + OV_INTRO; let k = -1;
+    const vt = intro.yt && yt.player && yt.player.getCurrentTime ? yt.player.getCurrentTime() : null;
+    if (vt !== null && vt >= TRAILER_AT){ RHYME.forEach((r, i) => { if (vt >= r[3] - 0.15) k = i; }); if (vt > V_END + 0.6) k = -1; }
+    else if (vt === null){ RHYME.forEach((r, i) => { if (it >= r[0]) k = i; }); if (it > RHYME_END) k = -1; }
+    
     const bg = $('lyricBig'); bg.hidden = k < 0; const key = 'rh' + k;
     if (k >= 0 && bg.dataset.k !== key){ bg.dataset.k = key; $('lyDe').textContent = RHYME[k][1]; $('lyKo').textContent = RHYME[k][2]; $('lyNext').textContent = k + 1 < RHYME.length ? RHYME[k + 1][1] : ''; } }
   if (cv.hidden) return;
