@@ -1429,20 +1429,32 @@ function pickVoice(){ if (!('speechSynthesis' in window)) return; const vs = spe
   const tier = re => gb.find(v => re.test(v.name) && fem.test(v.name)) || gb.find(v => re.test(v.name)) || en.find(v => re.test(v.name));
   ttsVoice = tier(/premium/i) || tier(/enhanced/i) || tier(/google|natural|neural|online/i) || gb.find(v => fem.test(v.name)) || gb[0] || en[0] || null; }
 if ('speechSynthesis' in window){ pickVoice(); speechSynthesis.addEventListener && speechSynthesis.addEventListener('voiceschanged', pickVoice); }
+// 낭독: 영화 공식 예고편을 유튜브 공식 퍼가기 플레이어로 틀어 그 첫 대사를 들려줌(음원을 따로 떼어 쓰지 않음).
+// IGN 업로드 「V For Vendetta 20th Anniversary - Official Trailer (2026)」. TRAILER_AT = 대사가 시작되는 예고편 초 (확인되면 이 숫자만 고치면 됨)
+const TRAILER_ID = '4iW3f4Xu3Zw', TRAILER_AT = 0, TRAILER_LEN = 13.5, TRAILER_START = 0.6;   // 인트로 0.6초부터 13.5초 동안
+function speakRhyme(){   // 유튜브를 못 쓸 때만: 브라우저 음성으로 낭독
+  if (!('speechSynthesis' in window)) return;
+  if (!ttsVoice) pickVoice();
+  for (const [at, line] of RHYME) intro.timers.push(setTimeout(() => { const u = new SpeechSynthesisUtterance(line); u.lang = 'en-GB'; if (ttsVoice) u.voice = ttsVoice; u.rate = 0.9; u.pitch = 1; u.volume = 1; speechSynthesis.speak(u); }, at*1000));
+}
 function startIntro(){
   stopIntro();
   if (window.__fake) return;
   if (!intro.el){ intro.el = new Audio('audio/bigben-intro.m4a'); intro.el.preload = 'auto'; }
-  intro.el.currentTime = 0; const p = intro.el.play(); if (p && p.catch) p.catch(() => {});
-  if ('speechSynthesis' in window){
-    if (!ttsVoice) pickVoice();
-    for (const [at, line] of RHYME) intro.timers.push(setTimeout(() => { const u = new SpeechSynthesisUtterance(line); u.lang = 'en-GB'; if (ttsVoice) u.voice = ttsVoice; u.rate = 0.9; u.pitch = 1; u.volume = 1; speechSynthesis.speak(u); }, at*1000));
-  }
+  intro.el.currentTime = 0; intro.el.volume = 0.45; const p = intro.el.play(); if (p && p.catch) p.catch(() => {});
+  intro.timers.push(setTimeout(() => { if (intro.el) intro.el.volume = 1; }, (TRAILER_START + TRAILER_LEN)*1000));
+  const r = round;
+  ensureYT().then(pl => { if (r !== round || !(S.ov && S.stage === 'count')) return;
+      $('ytWrap').hidden = false; intro.yt = true;
+      pl.loadVideoById({ videoId: TRAILER_ID, startSeconds: TRAILER_AT, endSeconds: TRAILER_AT + TRAILER_LEN }); pl.unMute(); pl.setVolume(100);
+      intro.timers.push(setTimeout(() => { if (r !== round) return; try { pl.pauseVideo(); } catch (e) {} $('ytWrap').hidden = true; intro.yt = false; }, (TRAILER_LEN + 1)*1000)); })
+    .catch(() => { if (r !== round) return; if (intro.el) intro.el.volume = 1; speakRhyme(); });
 }
 function stopIntro(){
   for (const id of intro.timers) clearTimeout(id); intro.timers = [];
   if ('speechSynthesis' in window) speechSynthesis.cancel();
   if (intro.el){ try { intro.el.pause(); } catch (e) {} }
+  if (intro.yt){ intro.yt = false; try { yt.player && yt.player.pauseVideo(); } catch (e) {} $('ytWrap').hidden = true; }
 }
 function skipIntro(){ if (!(S.ov && S.stage === 'count' && S.clock < 0)) return; stopIntro(); S.clock = 0; }
 const ovPlaying = () => OV.el && !OV.el.paused && OV.el.currentTime > 0;
@@ -1984,7 +1996,7 @@ function begin(mode){
   else { S.stage = 'scream'; setView('out'); }
   if (S.songId === 'kaiser'){ S.clock = -KAISER.intro; $('ytWrap').hidden = true; startKaiser(KAISER.intro + 0.3); }
   else if (S.song){ S.clock = 0; $('ytWrap').hidden = false; const r = round;
-    ensureYT().then(p => { if (r !== round) return; p.seekTo(0, true); p.unMute(); p.setVolume(100); p.playVideo(); })
+    ensureYT().then(p => { if (r !== round) return; p.loadVideoById({ videoId: YT_ID, startSeconds: 0 }); p.unMute(); p.setVolume(100); })
       .catch(() => { if (r !== round) return; $('ytWrap').hidden = true; startGuide(0.5); }); }
   else $('ytWrap').hidden = true;
   if (S.ov){ S.clock = -OV_INTRO; S.ovGo = false; startIntro(); S.dolly = { from: camera.position.clone(), to: camera.position.clone().lerp(controls.target, 0.42) }; }
