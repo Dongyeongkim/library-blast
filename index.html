@@ -600,7 +600,7 @@ function buildSite(){
 const S = { mode:'scream', stage:'idle', clock:-10, sync:0, I:100, A:0, phase:0, f0:200, lv:0, hz:0, noHz:1,
   elapsed:0, resT:0, peak:0, maxFollow:0, shake:0, flash:0, match:0, cents:null, drive:0, ended:false };
 const active = () => !S.ended && S.stage === 'scream';
-const GATE = 0.5, CANNON_GATE = 0.66;   // 마이크 문턱(0~1, 약 -32dBFS)과 대포 명중 문턱
+const GATE = 0.5, CANNON_GATE = 0.6;   // 마이크 문턱(0~1, 약 -32dBFS)과 대포 명중 문턱
 
 /* ================= 조각 체계 ================= */
 const building = new THREE.Group(); scene.add(building);
@@ -1485,7 +1485,7 @@ function cannonHit(hit){
   S.total++;
   S.shake = Math.max(S.shake, hit ? 1.3 : 0.45); boomLight.position.copy(BC); boomLight.intensity = Math.max(boomLight.intensity, hit ? 2500 : 700);
   if (!hit || S.ended) return;
-  S.hits++; S.lastHit = simT; S.flash = Math.max(S.flash, 0.3); S.A = Math.min(1.4, S.A + 0.25); S.I -= S.fever ? 7.5 : 6;
+  S.hits++; S.lastHit = simT; S.flash = Math.max(S.flash, 0.3); S.A = Math.min(1.4, S.A + 0.25); S.I -= S.fever ? 11 : 9;
   const c = pieces.filter(p => p.glass && !p.shattered && alive(p));
   for (let k=0; k<6 && c.length; k++){ const pc = c.splice(Math.floor(Math.random()*c.length), 1)[0]; pc.crack = 1; pc.glass.material = pc.crackMat; shatter(pc); }
   FW.sky(1);
@@ -1794,7 +1794,7 @@ function update(dt){
       if (S.clock >= 30){ S.clock = 30; S.stage = 'over'; stopCrowdAudio(); const r = round; setTimeout(() => showResult('held', r), 1200); } }
   }
   const on = active();
-  S.drive = on ? Math.max(0, (S.lv - GATE)/(1 - GATE)) : 0;   // 문턱(GATE) 아래 말소리로는 거의 안 흔들림
+  S.drive = on ? Math.sqrt(Math.max(0, (S.lv - GATE)/(1 - GATE))) : 0;   // 문턱(GATE) 아래 말소리로는 안 흔들리고, 넘으면 적당한 고함도 확실히 먹힘
   { const dbfs = v.db !== undefined ? v.db : v.level*45 - 55; S.spl = clamp(dbfs + 108, 30, 140);   // 대략적인 소리 크기(dB). 마이크마다 다름
     S.splS = S.splS ? S.splS + (S.spl - S.splS)*Math.min(1, dt*(S.spl > S.splS ? 12 : 4)) : S.spl; if (on && S.splS > S.peakDb) S.peakDb = S.splS; }
   // 피버: 문턱을 넉넉히 넘는 함성을(노래·공진 모드는 음까지 맞춰) 2.5초 버티면 피해 두 배, 끊겨도 0.8초는 봐줌
@@ -1818,7 +1818,7 @@ function update(dt){
       while (S.nj < NOTES.length && t > NOTES[S.nj].t1 + 0.25){ judgeNote(S.nj); S.nj++; } }
     S.elapsed += dt; S.peak = Math.max(S.peak, S.lv);
     if (S.match > 0.6 && S.drive > 0.1) S.resT += dt;
-    const over = S.A - 0.1; if (over > 0) S.I -= 6*Math.pow(over, 1.3)*dt*(S.fever && !S.ov && !(S.song && S.clock < SONG_KEY) ? 2 : 1)*(S.songId === 'kaiser' ? (S.clock < SONG_KEY ? 0.2 : 0.42) : S.song && S.clock < SONG_KEY ? 0.13 : S.ov ? 0.15 : 1);
+    const over = S.A - 0.1; if (over > 0) S.I -= 10*Math.pow(over, 1.3)*dt*(S.fever && !S.ov && !(S.song && S.clock < SONG_KEY) ? 2 : 1)*(S.songId === 'kaiser' ? (S.clock < SONG_KEY ? 0.2 : 0.42) : S.song && S.clock < SONG_KEY ? 0.13 : S.ov ? 0.15 : 1);
     if (S.ov) S.I = Math.max(S.I, 4);   // 마지막 한 방은 대포가 친다
     progressDamage();
     if (S.I <= 0) explode();
