@@ -1409,7 +1409,37 @@ function ovStart(){
   if (window.__fake) return;
   const p = OV.el.play(); if (p && p.catch) p.catch(() => { OV.failed = true; });
 }
-function ovStop(){ if (OV.el){ try { OV.el.pause(); } catch (e) {} } }
+function ovStop(){ if (OV.el){ try { OV.el.pause(); } catch (e) {} } stopIntro(); }
+// 서곡 앞 15초: 자정의 종소리와 영국 전래 동요 「Remember, remember the fifth of November」(17세기부터 전하는 퍼블릭 도메인 시구) 낭독
+const OV_INTRO = 15;
+const RHYME = [[0, 'Remember, remember the fifth of November,', '기억하라, 기억하라, 11월 5일을'], [3.7, 'Gunpowder, treason and plot.', '화약과 반역과 음모를.'],
+  [7.4, 'I see no reason why gunpowder treason', '화약 반역 사건이'], [11.1, 'should ever be forgot.', '잊혀야 할 까닭은 하나도 없다.']];
+const intro = { nodes: [], timers: [] };
+function bell(at, f, gain){   // 교회 종: 배음이 어긋난 부분음들이 길게 울리며 사라짐 + 때리는 순간의 잡음
+  const out = actx.createGain(); out.gain.value = gain; out.connect(actx.destination);
+  for (const [r, g, dec] of [[0.5, 0.5, 6], [1, 1, 4.5], [1.19, 0.45, 3.5], [1.5, 0.35, 3], [2, 0.5, 2.6], [2.52, 0.25, 2], [3.01, 0.2, 1.6], [4.17, 0.12, 1.1]]){
+    const o = actx.createOscillator(), gg = actx.createGain(); o.type = 'sine'; o.frequency.value = f*r;
+    gg.gain.setValueAtTime(0.0001, at); gg.gain.linearRampToValueAtTime(g*0.3, at + 0.005); gg.gain.exponentialRampToValueAtTime(0.0001, at + dec);
+    o.connect(gg).connect(out); o.start(at); o.stop(at + dec + 0.05); intro.nodes.push(o); }
+  const ns = actx.createBufferSource(); ns.buffer = noiseBuf(0.08, x => 1 - x); const hp = actx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2000;
+  const ng = actx.createGain(); ng.gain.value = 0.15; ns.connect(hp).connect(ng).connect(out); ns.start(at); intro.nodes.push(ns);
+}
+function startIntro(){
+  stopIntro();
+  if (!actx || window.__fake) return;
+  const t0 = actx.currentTime + 0.1;
+  for (let k=0;k<8;k++) bell(t0 + k*1.85, k % 2 ? 220 : 175, 0.55);   // 딩—동— 번갈아 여덟 번
+  if ('speechSynthesis' in window){
+    const vs = speechSynthesis.getVoices(), v = vs.find(x => /en-GB/i.test(x.lang)) || vs.find(x => /^en/i.test(x.lang));
+    for (const [at, line] of RHYME) intro.timers.push(setTimeout(() => { const u = new SpeechSynthesisUtterance(line); u.lang = 'en-GB'; if (v) u.voice = v; u.rate = 0.82; u.pitch = 0.7; u.volume = 1; speechSynthesis.speak(u); }, (at + 0.5)*1000));
+  }
+}
+function stopIntro(){
+  for (const id of intro.timers) clearTimeout(id); intro.timers = [];
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  if (actx) for (const n of intro.nodes){ try { n.stop(); } catch (e) {} }
+  intro.nodes = [];
+}
 const ovPlaying = () => OV.el && !OV.el.paused && OV.el.currentTime > 0;
 function cannonHit(hit){
   S.total++;
@@ -1695,7 +1725,9 @@ function update(dt){
   if (S.ov){ S.match = S.lv > 0.3 ? 0.85 : 0.1; S.cents = null; }
 
   if (S.ov && !S.ended){   // 1812 서곡: 녹음 재생 시각이 곧 시계, 대포가 터지는 순간 함성이 크면 명중
-    if (S.stage === 'count' && (ovPlaying() || OV.failed || window.__fake)) S.stage = 'scream';
+    if (S.stage === 'count'){ S.clock += dt;
+      if (S.clock >= 0 && !S.ovGo){ S.ovGo = true; ovStart(); }
+      if (S.ovGo && (ovPlaying() || OV.failed || window.__fake)){ S.stage = 'scream'; S.clock = 0; } }
     if (S.stage === 'scream'){
       S.clock = (window.__fake || OV.failed || !OV.el) ? S.clock + dt : OV.el.currentTime;
       const c = CANNONS[S.ci];
@@ -1799,11 +1831,14 @@ function drawCannons(g, W, H){   // 1812: 오른쪽에서 대포 표시가 흘�
   const nc = CANNONS[S.ci];
   if (nc !== undefined && nc - t < 3.2 && nc - t > -0.4){ g.fillStyle = '#fff'; g.font = 'bold 22px system-ui, sans-serif'; g.textAlign = 'center'; g.fillText(nc - t > 0.6 ? String(Math.ceil(nc - t - 0.4)) : '지금!', X(nc), (top + bot)/2); g.textAlign = 'left'; }
   else if (nc === undefined && !S.ended){ g.fillStyle = 'rgba(255,255,255,.6)'; g.textAlign = 'center'; g.fillText('대포가 다 터졌습니다', W/2, (top + bot)/2); g.textAlign = 'left'; }
-  else if (S.ci === 0 && nc - t >= 3.2){ g.fillStyle = 'rgba(255,255,255,.6)'; g.textAlign = 'center'; g.fillText(`첫 대포까지 ${Math.ceil(nc - t)}초 · 노란 표시가 세로선에 닿을 때 크게 외치세요`, W/2, (top + bot)/2); g.textAlign = 'left'; }
+  else if (S.ci === 0 && nc - t >= 3.2){ g.fillStyle = 'rgba(255,255,255,.6)'; g.textAlign = 'center'; g.fillText(`첫 대포까지 ${Math.ceil(nc - S.clock)}초 · 노란 표시가 세로선에 닿을 때 크게 외치세요`, W/2, (top + bot)/2); g.textAlign = 'left'; }
 }
 function drawRoll(){   // 노래방식 음정 띠: 오른쪽에서 음표 막대가 흘러와 세로선(지금)을 지나감, 내 음은 점과 꼬리
   const cv = $('roll'); cv.hidden = !(S.song || S.ov) || S.stage === 'idle';
-  if (cv.hidden || S.ov) $('lyricBig').hidden = true;
+  if (cv.hidden || (S.ov && !(S.stage === 'count' && S.clock < 0))) $('lyricBig').hidden = true;
+  else if (S.ov){ const it = S.clock + OV_INTRO; let k = -1; RHYME.forEach((r, i) => { if (it >= r[0]) k = i; });
+    const bg = $('lyricBig'); bg.hidden = k < 0; const key = 'rh' + k;
+    if (k >= 0 && bg.dataset.k !== key){ bg.dataset.k = key; $('lyDe').textContent = RHYME[k][1]; $('lyKo').textContent = RHYME[k][2]; $('lyNext').textContent = k + 1 < RHYME.length ? RHYME[k + 1][1] : ''; } }
   if (cv.hidden) return;
   const dpr = Math.min(2, window.devicePixelRatio || 1), W = cv.clientWidth, H = cv.clientHeight;
   if (cv.width !== Math.round(W*dpr) || cv.height !== Math.round(H*dpr)){ cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr); }
@@ -1856,10 +1891,10 @@ function hud(){
   const ib = $('intBar'); ib.style.width = I + '%'; ib.style.background = I > 60 ? 'var(--ok)' : I > 30 ? 'var(--warn)' : 'var(--bad)';
   const clk = $('clock'); clk.hidden = S.mode !== 'scream' || S.stage === 'idle';
   if (!clk.hidden){
-    $('clockTxt').textContent = S.ov ? fmt(Math.max(0, S.clock)) + ' / ' + fmt(OV_END) : S.song ? fmt(Math.max(0, S.clock)) + ' / ' + fmt(SONG_END) : fmtClock(S.clock);
+    $('clockTxt').textContent = S.ov ? (S.clock < 0 ? '00:00' : fmt(S.clock) + ' / ' + fmt(OV_END)) : S.song ? fmt(Math.max(0, S.clock)) + ' / ' + fmt(SONG_END) : fmtClock(S.clock);
     clk.classList.toggle('live', S.stage === 'scream' && !S.ended);
     $('clockSub').textContent = S.ended ? '학생들은 모두 광장으로 빠져나왔습니다'
-      : S.ov && S.stage === 'count' ? '해병대 군악대 녹음을 불러오는 중'
+      : S.ov && S.stage === 'count' ? (S.clock < 0 ? '11월 5일 자정, 종이 울립니다' : '해병대 군악대 녹음을 불러오는 중')
       : S.ov && S.stage === 'scream' ? `가면 쓴 ${crowd.n}명이 함께 외치는 중 · 대포 ${S.ci} / ${CANNONS.length}`
       : S.songId === 'kaiser' && S.stage === 'scream' ? `${crowd.n}명 중 ${Math.round(S.sync*crowd.n)}명이 함께 부르는 중`
       : S.song && S.stage === 'count' ? '번스타인·런던 심포니 녹음을 불러오는 중'
@@ -1870,7 +1905,7 @@ function hud(){
   let msg = '';
   if (S.ov){
     const dtc = S.ci < CANNONS.length ? CANNONS[S.ci] - S.clock : null;
-    if (S.stage === 'count') msg = '곧 시작합니다. 이어폰을 끼면 음악이 마이크에 섞이지 않습니다.';
+    if (S.stage === 'count') msg = S.clock < 0 ? `종이 그치면 서곡이 시작됩니다 (${Math.ceil(-S.clock)}초)` : '곧 시작합니다.';
     else if (S.ended) msg = '';
     else if (simT - S.lastHit < 0.9) msg = '명중! 건물이 크게 흔들립니다.';
     else if (dtc !== null && dtc <= 1.0 && dtc > -0.4) msg = '지금! 크게!';
@@ -1944,7 +1979,7 @@ function begin(mode){
     ensureYT().then(p => { if (r !== round) return; p.seekTo(0, true); p.unMute(); p.setVolume(100); p.playVideo(); })
       .catch(() => { if (r !== round) return; $('ytWrap').hidden = true; startGuide(0.5); }); }
   else $('ytWrap').hidden = true;
-  if (S.ov){ S.clock = 0; ovStart(); }
+  if (S.ov){ S.clock = -OV_INTRO; S.ovGo = false; startIntro(); }
 }
 async function onStart(mode){
   $('err').hidden = true;
@@ -1978,6 +2013,7 @@ window.__step = n => { for (let i=0;i<n;i++) update(1/60); render(); hud();
   return { I: S.I, A: S.A, stage: S.stage, clock: S.clock, sync: S.sync, ended: S.ended, crowd: crowd.n, camY: +camera.position.y.toFixed(2), fixed: pieces.filter(p => p.state === 'fix').length, total: pieces.length }; };
 window.__begin = begin; window.__campus = selectCampus; window.__tgt = () => targetHz();
 window.__kaiserTest = () => { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); const f = window.__fake; window.__fake = null; startKaiser(3); window.__fake = f; const r = guide ? { nodes: guide.nodes.length, t0: +(guide.t0 - actx.currentTime).toFixed(2), notes: KAISER.notes.length, chords: KAISER.chords.length, end: +KAISER.end.toFixed(1) } : null; stopGuide(); return r; };
+window.__introTest = () => { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); const f = window.__fake; window.__fake = null; startIntro(); window.__fake = f; const r = { nodes: intro.nodes.length, timers: intro.timers.length, tts: 'speechSynthesis' in window }; stopIntro(); return r; };
 window.__songT = t => { yt.ok = false; S.clock = t; }; window.__guideTest = () => { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); const f = window.__fake; window.__fake = null; startGuide(4.2); window.__fake = f; const r = guide ? { nodes: guide.nodes.length, t0: +(guide.t0 - actx.currentTime).toFixed(2), state: actx.state } : null; stopGuide(); return r; };
 window.__camAt = (x, y, z, tx, ty, tz) => { setView('out'); camera.position.set(x, y, z); controls.target.set(tx, ty, tz); controls.update(); render(); };
 window.__look = (x, y, z) => { const p = camera.position; controls.target.set(p.x + (x - p.x)*0.01, p.y + (y - p.y)*0.01, p.z + (z - p.z)*0.01); controls.update(); render(); };
