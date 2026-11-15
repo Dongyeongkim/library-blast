@@ -413,18 +413,19 @@ const DGIST_POLY = [[-20.9,-21.1],[22.7,-21.1],[26.0,-17.6],[26.4,-12.8],[25.3,3
 const CAMPUS = {
   postech: {
     name: 'POSTECH', sign: ['POSTECH', '박태준학술정보관'], hall: '로툰다',
-    info: 'POSTECH 박태준학술정보관 · 포항 · 6층, 연면적 24,420㎡. 층별 안내도대로 지름 50m 원형 유리 로툰다와 가운데 원형 아트리움(지름비 0.46), 1층 뒤쪽 기단, 언덕에서 5층 로툰다 옆구리로 들어오는 사장교 다리, 옆의 유리 아트리움동.',
+    info: 'POSTECH 박태준학술정보관 · 포항 · 지상 6층, 연면적 24,420㎡. 카카오맵 스카이뷰 실측(1px=0.3125m): 지름 약 68m 원형 유리 로툰다, 가운데 지름 약 30m 유리 돔 아트리움, 지붕 둘레 옥상 녹지. 북동쪽 6층 격자 동과 유리 아트리움, 북쪽 연결동, 북서쪽 별동, 청암로 쪽 다리가 5층 서쪽으로 들어옴. 도서관 투어 안내대로 1층 행정·연구센터, 2층 로비·참고자료, 3층 단행본, 4층 저널, 5층 24시간 열람, 6층 매점·옥상 테라스.',
     tradition: '시험기간 밤 12시, 학생들이 로툰다 난간에 서서 30초 동안 다 같이 소리를 지르는 포스텍 스크리밍 데이. 이번엔 그 함성으로 도서관을 무너뜨립니다.',
     startLabel: '스크리밍 데이 시작',
     interior: { carpet: 0x8d8f94, desk: 0xf2f1ec, chair: 0x59606b },
-    main: { cx: -17, cz: -4, poly: sePoly(25, 25, 2), holeAt: { dx: -1.5, dz: -2.5, a: 11.5, b: 11.5, n: 2 }, nf: 6, fh: 4.3, seg: 36, facade: 'glass', glass: 0x7ea2b6, slab: 0xe8e5de },
-    out: { pos: [-78, 20, 100], target: [-6, 12, 0] },
-    plaza: [-88, -40, 30, 54], blast: [-46, 44, 28, -40, 22], trees: 'pine',
+    main: { cx: -17, cz: -4, poly: sePoly(34, 34, 2), holeAt: { dx: 0, dz: 0, a: 15, b: 15, n: 2 }, nf: 6, fh: 4.6, seg: 48, facade: 'glass', glass: 0x7ea2b6, slab: 0xe8e5de,
+      roofOpen: true, shelfFloors: [1, 2, 3, 4] },   // 지붕 가운데는 유리 돔(아래 extras), 서가는 2~5층만
+    out: { pos: [-96, 26, 116], target: [-8, 13, -4] },
+    plaza: [-100, -58, 36, 62], blast: [-56, 44, 32, -52, 32], trees: 'pine',
     ground: (x, z) => Math.max(17.2*smooth((-x - 92)/20)*smooth((60 - Math.abs(z + 6))/30), smooth((-z - 60)/140) * (46 + 22*Math.sin(x*0.011) + 10*Math.sin(x*0.029 + 1.3))),
-    flats: [[124, 56, 4, -8, 0x9a968f], [84, 36, 20, 33, 0xbdb7ac], [420, 8, -60, 58, 0x3f4245, 0.08]],
-    signAt: [-22, 30, -0.35],
-    treeSpots: () => [[-48,22,0.9],[-30,36,0.9],[-66,20,1],[-60,46,1],[50,46,1]],
-    avoid: (x,z) => (x > -50 && x < 68 && z > -40 && z < 22) || (x > -24 && x < 64 && z > 14 && z < 52) || (z > 53 && z < 63) || (x < -38 && x > -125 && Math.abs(z + 4) < 9) || (x > -100 && x < -40 && z > -55 && z < -25),
+    flats: [[60, 50, 30, -26, 0x9a968f], [420, 8, -60, 58, 0x3f4245, 0.08]],   // 북동쪽 동 앞마당 포장, 도로 (남쪽은 잔디)
+    signAt: [-22, 42, -0.35],
+    treeSpots: () => [[-50,26,0.9],[-30,36,0.9],[-66,20,1],[-60,46,1],[50,46,1]],
+    avoid: (x,z) => (x > -62 && x < 40 && z > -54 && z < 34) || (x > -24 && x < 64 && z > 14 && z < 52) || (z > 53 && z < 63) || (x < -38 && x > -125 && Math.abs(z + 4) < 9) || (x > -100 && x < -40 && z > -55 && z < -25),
   },
   kaist: (() => {
     // 카카오 스카이뷰 실측 (1px=0.3125m, +x 동쪽, +z 남쪽). 건물 전체는 남서 정면이 한 직선인 직사각형 134×39m.
@@ -726,7 +727,8 @@ function buildMain(){
   }
   const fallenOn = f => drum[f].filter(p => !alive(p)).length;
   {
-    const rs = () => m.roofPoly ? m.roofPoly().map(polyShape) : [olPath(scT, 0.4)];
+    const rs = () => { const a = m.roofPoly ? m.roofPoly().map(polyShape) : [olPath(scT, 0.4)];
+      if (m.roofOpen){ const H = holeSpec(); a[a.length - 1].holes.push(sePathAt(H.a, H.b, H.n, H.dx, H.dz, THREE.Path)); } return a; };
     const geo = new THREE.ExtrudeGeometry(rs(), { depth: 0.6, bevelEnabled: false }); geo.rotateX(-Math.PI/2);
     const r = new THREE.Mesh(geo, M.grey); r.position.set(m.cx, topY, m.cz);
     const cg = new THREE.ShapeGeometry(rs(), 48); cg.rotateX(-Math.PI/2);
@@ -737,6 +739,7 @@ function buildMain(){
   const per = Math.round(olPerim(0.74)/3.4);
   const I = C.interior, inR = (r, x, z) => r && x > r.x0 && x < r.x1 && z > r.z0 && z < r.z1;
   const shelfSpots = f => { const sc = mScale(f)*(floorType(f) === 'inset' ? 0.86 : 1), out = [];
+    if (m.shelfFloors && !m.shelfFloors.includes(f)) return out;
     if (I.rows) for (let x = I.rows.x0 + 1.2; x < I.rows.x1; x += 3.2) for (let z = I.rows.z0 + 1.3, k = 0; z < I.rows.z1; z += 2.45, k++){ if (k % 5 !== 4) out.push([x, z, Math.PI/2]); }
     for (let i=0; i<per; i++){
       const t = (i + (f%2)*0.5)/per*Math.PI*2, [x, z] = olPt(t, 0.74*sc), [x2, z2] = olPt(t + 0.01, 0.74*sc);
@@ -834,14 +837,21 @@ function extrasPostech(){
     for (let i=0;i<3;i++){ const a = i/3*TAU + 0.5, tri = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.3, 1.9, 3), M.shelf); tri.position.set(Math.cos(a)*7.2, 0.95, Math.sin(a)*7.2); g.add(tri); }
     g.position.set(hx, 0.14, hz); addPiece(g, { kind: 'stair' });
   }
-  const wb = [];
-  for (let f=0; f<NF; f++){
-    const w = new THREE.Mesh(box(10, FH, 32), M.white); w.position.set(11, f*FH + FH/2, -4);
-    const ff = f; wb[f] = addPiece(w, { kind: 'white', supported: f ? () => alive(wb[ff-1]) : null });
+  const cx = m.cx, cz = m.cz, roofOk = () => crowdHold() || alive(core);
+  { // 지붕(스카이뷰): 가운데 지름 30m 유리 돔, 그 둘레 어두운 링 지붕(조금 높게), 바깥 옥상 녹지와 흰 테두리
+    const g = new THREE.Group(), R = 39, h = 3, th = Math.asin(15/R);
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(R, 48, 8, 0, TAU, 0, th), M.glass); dome.position.y = 0.6 - (R - h); g.add(dome);
+    for (let k=0;k<16;k++){ const rib = new THREE.Mesh(new THREE.TorusGeometry(R, 0.06, 4, 24, th), M.frame); rib.rotation.set(0, k/16*TAU, Math.PI/2 - th); rib.position.y = 0.6 - (R - h); g.add(rib); }
+    const ring = (r0, r1, hh, mat, y) => { const sh = new THREE.Shape(); sh.absarc(0, 0, r1, 0, TAU, false); const ho = new THREE.Path(); ho.absarc(0, 0, r0, 0, TAU, true); sh.holes.push(ho);
+      const ge = new THREE.ExtrudeGeometry(sh, { depth: hh, bevelEnabled: false, curveSegments: 64 }); ge.rotateX(-Math.PI/2); const me = new THREE.Mesh(ge, mat); me.position.y = y; g.add(me); };
+    ring(15, 22.5, 1.3, M.dark, 0.6); ring(22.5, 33.2, 0.15, new THREE.MeshStandardMaterial({ color: 0x6f8a58, roughness: 1 }), 0.6);
+    g.position.set(cx, topY, cz); addPiece(g, { kind: 'roof', supported: roofOk });
   }
-  const parapet = new THREE.Mesh(box(10.4, 1.2, 32.4), M.white); parapet.position.set(11, NF*FH + 0.6, -4);
-  addPiece(parapet, { kind: 'white', supported: () => alive(wb[NF-1]) });
-  const AX0 = 16, AX1 = 42, AZ = 11, AC = 8, AR = 7, AH = 4, aw = (AX1 - AX0)/AC;
+  // 북동쪽 6층 격자 외벽 동 (스카이뷰 약 19×38m) + 남쪽으로 로툰다와 이어지는 유리 아트리움
+  const ne = [];
+  for (let f=0; f<NF; f++){ const w = gridBox(19, FH, 38); w.position.set(cx + 42.5, f*FH + FH/2, cz - 19); const ff = f; ne[f] = addPiece(w, { kind: 'white', supported: f ? () => alive(ne[ff-1]) : null }); }
+  { const par = new THREE.Mesh(box(19.4, 1.1, 38.4), M.white); par.position.set(cx + 42.5, NF*FH + 0.55, cz - 19); addPiece(par, { kind: 'white', supported: () => alive(ne[NF-1]) }); }
+  const AX0 = cx + 30, AX1 = cx + 52, AZ = cz + 6, AZB = cz - 0.5, AC = 6, AR = 6, AH = FH, aw = (AX1 - AX0)/AC;
   const atrium = [];
   for (let r=0; r<AR; r++){ atrium[r] = [];
     for (let c=0; c<AC; c++){
@@ -854,33 +864,19 @@ function extrasPostech(){
       atrium[r][c] = addPiece(g, { glass: gl, kind: 'atrium', supported: r ? () => alive(atrium[rr-1][cc]) : null });
     }
   }
-  const backs = [];
-  for (let f=0; f<NF+1; f++){
-    const w = new THREE.Mesh(box(AX1-AX0, AH, 0.6), M.white); w.position.set((AX0+AX1)/2, f*AH + AH/2, -16);
-    const ff = f; backs[f] = addPiece(w, { kind: 'white', supported: f ? () => alive(backs[ff-1]) : null });
-    if (f > 0){ const fl = new THREE.Mesh(box(AX1-AX0, 0.4, 11), M.floor); fl.position.set((AX0+AX1)/2, f*AH, -10.2);
-      addPiece(fl, { kind: 'plate', supported: () => alive(backs[ff-1]) }); }
-  }
-  const cols = [];
-  for (let i=0; i<7; i++){ const c = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.38, 30.4, 12), M.frame);
-    c.position.set(AX0 + 1.6 + i*3.8, 15.2, 15); cols.push(addPiece(c, { kind: 'column' })); }
-  for (let i=0; i<2; i++) for (let j=0; j<2; j++){
-    const g = new THREE.Group(); g.add(new THREE.Mesh(box(16.5, 0.6, 18.5), M.frame));
-    const edge = new THREE.Mesh(box(16.5, 0.9, 0.3), M.slab); edge.position.set(0, -0.1, j ? 9.1 : -9.1); g.add(edge);
-    g.position.set(AX0 - 2 + 8.25 + i*16.5, 30.7, -18 + 9.25 + j*18.5);
-    addPiece(g, { kind: 'canopy', supported: () => cols.filter(alive).length >= 4 && atrium[AR-1].filter(alive).length >= 3 });
-  }
-  const gb = [];
-  for (let f=0; f<5; f++){ const g = new THREE.Group(); g.add(new THREE.Mesh(box(20, FH, 25), M.grey));
-    const strip = new THREE.Mesh(box(20.3, 1.4, 25.3), M.dark); strip.position.y = 0.4; g.add(strip);
-    g.position.set(52, f*FH + FH/2, -8); const ff = f; gb[f] = addPiece(g, { kind: 'grey', supported: f ? () => alive(gb[ff-1]) : null }); }
-  // 1층 뒤쪽 기단 (층별 안내도 1층: 로툰다 뒤로 넓게 깔린 보안구역·클러스터센터)
-  const pod = [];
-  for (const [x, w] of [[-38, 22], [-16, 22]]){ const g = new THREE.Group(); g.add(new THREE.Mesh(box(w, FH, 18), M.white));
-    const s = new THREE.Mesh(box(w + 0.2, 1.6, 18.2), M.dark); s.position.y = 0.3; g.add(s);
-    g.position.set(x, FH/2, -33); pod.push(addPiece(g, { kind: 'white' })); }
+  for (let f=1; f<NF; f++){ const fl = new THREE.Mesh(box(AX1 - AX0, 0.4, AZ - AZB), M.floor); fl.position.set((AX0 + AX1)/2, f*FH, (AZ + AZB)/2);
+    const ff = f; addPiece(fl, { kind: 'plate', supported: () => alive(ne[ff-1]) || alive(atrium[ff-1][2]) }); }
+  { const cn = new THREE.Mesh(box(AX1 - AX0 + 3, 0.6, AZ - AZB + 4), M.frame); cn.position.set((AX0 + AX1)/2, NF*FH + 0.3, (AZ + AZB)/2 + 1.5);
+    addPiece(cn, { kind: 'canopy', supported: () => atrium[AR-1].filter(alive).length >= 3 }); }
+  // 북쪽 연결동(어두운 지붕, 3층)과 북서쪽 다리 쪽 별동(2층) — 스카이뷰 위치
+  const nb = [];
+  for (let f=0; f<3; f++){ const g = new THREE.Group(); g.add(new THREE.Mesh(box(22, FH, 13), M.grey)); const st = new THREE.Mesh(box(22.3, 1.3, 13.3), M.dark); st.position.y = 0.4; g.add(st);
+    g.position.set(cx + 20, f*FH + FH/2, cz - 39.5); const ff = f; nb[f] = addPiece(g, { kind: 'grey', supported: f ? () => alive(nb[ff-1]) : null }); }
+  const nw = [];
+  for (let f=0; f<2; f++){ const g = new THREE.Group(); g.add(new THREE.Mesh(box(19, FH, 24), M.white)); const st = new THREE.Mesh(box(19.3, 1.4, 24.3), M.dark); st.position.y = 0.3; g.add(st);
+    g.position.set(cx - 31.5, f*FH + FH/2, cz - 17); const ff = f; nw[f] = addPiece(g, { kind: 'white', supported: f ? () => alive(nw[ff-1]) : null }); }
   // 언덕 도로에서 5층 로툰다 옆구리(서쪽)로 바로 들어오는 사장교 다리 (층별 안내도 5층 출입구)
-  const deckY = 4*FH, x0 = m.cx - 25, DZ = m.cz, deck = [], seg = m.seg, side = Math.round(seg/2);
+  const deckY = 4*FH, DZ = m.cz + 9, x0 = m.cx - Math.sqrt(34*34 - 81), deck = [], seg = m.seg, side = Math.round(seg/2);
   for (let i=0; i<7; i++){
     const g = new THREE.Group(); g.add(new THREE.Mesh(box(10, 0.6, 4.4), M.slab));
     for (const sz of [-2.1, 2.1]){ const rl = new THREE.Mesh(box(10, 1.1, 0.08), M.glass); rl.position.set(0, 0.85, sz); g.add(rl); }
