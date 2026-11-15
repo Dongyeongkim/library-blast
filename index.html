@@ -961,17 +961,41 @@ function extrasKaist(){
     for (const dv of [-Wd/2 - 0.1, Wd/2 + 0.1]){ // 흰 통벽 난간 (경사)
       const [x, z] = K.P(u0, vC + dv), wall = new THREE.Mesh(pg, M.white); wall.position.set(x, 0, z); wall.rotation.y = LIBR; g.add(wall); }
     addPiece(g, { kind: 'stair' }); }
-  // 5층: 직육면체 장밋빛 막대 (스카이뷰 실측 80×20.5m, 중심 (12.4, 9.2), 축은 거의 정남북). 남쪽 끝면은 유리 너머 나무 벽 홀
+  // 5층: 직육면체 장밋빛 막대 (스카이뷰 실측 80×20.5m, 중심 (12.4, 9.2), 축은 거의 정남북). 남쪽 끝 두 칸은 통유리 너머 연회장
   const L = 80, D = 20.5, H = 11, n = 8, rot = -1.688, w = L/n, CX = 12.4, CZ = 9.2, baseY = topY + 0.8;
   const saw = new THREE.ExtrudeGeometry(new THREE.Shape([new THREE.Vector2(-w/6, 0), new THREE.Vector2(w/6, 0), new THREE.Vector2(w/6, 1.5)]), { depth: D - 0.4, bevelEnabled: false }); saw.translate(0, 0, -(D - 0.4)/2);
+  // 남쪽 끝 두 칸(20m)은 연회장: 끝면 투명 통유리, 안쪽 양옆 삼각 나무 패널 벽, 따뜻한 우물 천장 조명, 청회색 카펫, 흰 원탁 (실내 사진 참고)
+  const facetTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 256; const g2 = c.getContext('2d'), tones = ['#b9875a', '#a77649', '#c99a6c', '#946640'];
+    for (let y=0; y<4; y++) for (let x=0; x<4; x++) for (let k=0;k<2;k++){ g2.beginPath(); const X = x*64, Y = y*64;
+      if (k){ g2.moveTo(X, Y); g2.lineTo(X + 64, Y); g2.lineTo(X + 64, Y + 64); } else { g2.moveTo(X, Y); g2.lineTo(X, Y + 64); g2.lineTo(X + 64, Y + 64); }
+      g2.closePath(); g2.fillStyle = tones[(x*3 + y*5 + k*2) % 4]; g2.fill(); g2.strokeStyle = 'rgba(60,35,20,.55)'; g2.lineWidth = 2; g2.stroke(); }
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; return t; })();
+  const woodFacet = new THREE.MeshStandardMaterial({ map: facetTex, roughness: 0.7 }), hallGlass = new THREE.MeshStandardMaterial({ color: 0xbcd3df, metalness: 0.3, roughness: 0.05, transparent: true, opacity: 0.18, depthWrite: false });
+  const carpet = new THREE.MeshStandardMaterial({ color: 0x5c6b7a, roughness: 1 }), ceilM = new THREE.MeshStandardMaterial({ color: 0xe8e4dc, roughness: 0.9 }), coffer = new THREE.MeshStandardMaterial({ color: 0xfff1d6, emissive: 0xffd9a0, emissiveIntensity: 1.1 }), cloth = new THREE.MeshStandardMaterial({ color: 0xf6f4ef, roughness: 0.8 });
   for (let i=0;i<n;i++){
-    const lx = -L/2 + (i + 0.5)*w, g = new THREE.Group();
-    const bx = new THREE.Mesh(box(w + 0.02, H, D), M.terra); bx.position.y = H/2; g.add(bx);
-    for (let j=0;j<3;j++){ const t = new THREE.Mesh(saw, M.white); t.position.set(-w/2 + (j + 0.5)*w/3, H, 0); g.add(t); }   // 톱날 지붕 (홍보영상 0:04)
-    if (i === n - 1){
-      const end = new THREE.Mesh(box(0.3, H - 2, D - 1.6), M.glassLit); end.position.set(w/2 + 0.12, H/2, 0); g.add(end);
-      const hall = new THREE.Mesh(box(0.2, H - 2.4, D - 2), M.wood); hall.position.set(-w/2 + 0.4, H/2, 0); g.add(hall);
+    const lx = -L/2 + (i + 0.5)*w, g = new THREE.Group(), hallPart = i >= n - 2;
+    if (!hallPart){ const bx = new THREE.Mesh(box(w + 0.02, H, D), M.terra); bx.position.y = H/2; g.add(bx); }
+    else {
+      const fl = new THREE.Mesh(box(w + 0.02, 0.5, D), M.terra); fl.position.y = 0.25; g.add(fl);
+      const rf = new THREE.Mesh(box(w + 0.02, 0.9, D), M.terra); rf.position.y = H - 0.45; g.add(rf);
+      for (const sz of [-1, 1]){ const sw = new THREE.Mesh(box(w + 0.02, H, 0.5), M.terra); sw.position.set(0, H/2, sz*(D/2 - 0.25)); g.add(sw);
+        const pg = new THREE.PlaneGeometry(w, H - 1.6);
+        const pm = new THREE.Mesh(pg, woodFacet); pm.position.set(0, (H - 1.6)/2 + 0.5, sz*(D/2 - 0.52)); pm.rotation.y = sz > 0 ? Math.PI : 0; g.add(pm); }
+      const cp = new THREE.Mesh(new THREE.PlaneGeometry(w, D - 1), carpet); cp.rotation.x = -Math.PI/2; cp.position.y = 0.51; g.add(cp);
+      const ce = new THREE.Mesh(new THREE.PlaneGeometry(w, D - 1), ceilM); ce.rotation.x = Math.PI/2; ce.position.y = H - 1.0; g.add(ce);
+      for (let a=0;a<3;a++) for (let b=0;b<4;b++){ const cf = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.8), coffer); cf.rotation.x = Math.PI/2; cf.position.set(-w/2 + (a + 0.5)*w/3, H - 1.05, -D/2 + 1 + (b + 0.5)*(D - 2)/4); g.add(cf); }
+      for (const [tx, tz] of [[-2.2, -5.5], [2.6, -2], [-2.2, 1.8], [2.6, 5.5], [-0.2, 7.6], [0.2, -8]]){ const tb = new THREE.Group();
+        const top = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.05, 0.78, 20), cloth); top.position.y = 0.39; tb.add(top);
+        for (let k=0;k<6;k++){ const a = k/6*TAU, ch = new THREE.Mesh(box(0.42, 0.85, 0.42), M.chair); ch.position.set(Math.cos(a)*1.55, 0.43, Math.sin(a)*1.55); tb.add(ch); }
+        tb.position.set(tx, 0.5, tz); g.add(tb); }
+      if (i === n - 1){   // 남쪽 끝면: 투명 통유리 + 가는 세로 멀리언
+        const gl = new THREE.Mesh(box(0.12, H - 1.4, D - 1), hallGlass); gl.position.set(w/2 - 0.1, H/2, 0); g.add(gl);
+        for (let k=0;k<=8;k++){ const mu = new THREE.Mesh(box(0.18, H - 1.4, 0.12), M.frame); mu.position.set(w/2 - 0.1, H/2, -D/2 + 0.5 + k*(D - 1)/8); g.add(mu); }
+        const lt = new THREE.PointLight(0xffd9a8, 60, 34, 1.6); lt.position.set(-2, H - 2.5, 0); g.add(lt); }
+      else { const back = new THREE.Mesh(new THREE.PlaneGeometry(D - 1, H - 1.6), woodFacet); back.position.set(-w/2 + 0.05, (H - 1.6)/2 + 0.5, 0); back.rotation.y = Math.PI/2; g.add(back);
+        const bk = new THREE.Mesh(box(0.4, H, D), M.terra); bk.position.set(-w/2 - 0.2, H/2, 0); g.add(bk); }
     }
+    for (let j=0;j<3;j++){ const t = new THREE.Mesh(saw, M.white); t.position.set(-w/2 + (j + 0.5)*w/3, H, 0); g.add(t); }   // 톱날 지붕 (홍보영상 0:04)
     g.position.set(CX + lx*Math.cos(rot), baseY, CZ - lx*Math.sin(rot)); g.rotation.y = rot;
     addPiece(g, { kind: 'bronze', supported: () => crowdHold() || top.filter(alive).length > m.seg*0.55 });
   }
