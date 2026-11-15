@@ -1413,53 +1413,34 @@ function ovStart(){
   const p = OV.el.play(); if (p && p.catch) p.catch(() => { OV.failed = true; });
 }
 function ovStop(){ if (OV.el){ try { OV.el.pause(); } catch (e) {} } stopIntro(); }
-// 서곡 앞 인트로(건물 밖에서 천천히 다가감): 영국 전래 동요 「Remember, remember the fifth of November」(17세기부터 전하는 퍼블릭 도메인 시구) 낭독,
-// 이어서 웨스트민스터 차임(1793년 선율, 퍼블릭 도메인)의 정시 네 마디와 자정 타종 열두 번. 소리는 모두 브라우저가 합성
-// 순서: 깊은 종 세 번(뎅—뎅—뎅—) → 웨스트민스터 차임 정시 네 마디 → 동요 낭독 → 서곡
-const DONG = [0.4, 2.6, 4.8];
-const CHIME_AT = 7.4, CHIME = [[64,68,66,59],[64,66,68,64],[68,64,66,59],[59,66,68,64]], CN = 0.62, CL = 1.25;   // 웨스트민스터 정시 4마디 (E조)
-const RHYME_AT = CHIME_AT + CHIME.length*(3*CN + CL + 0.35) + 0.9;
-const RHYME = [[0, 'Remember, remember the fifth of November,', '기억하라, 기억하라, 11월 5일을'], [3.6, 'Gunpowder, treason and plot.', '화약과 반역과 음모를.'],
-  [7.0, 'I see no reason why gunpowder treason', '화약 반역 사건이'], [10.4, 'should ever be forgot.', '잊혀야 할 까닭은 하나도 없다.']].map(([t, a, b]) => [RHYME_AT + t, a, b]);
-const OV_INTRO = RHYME_AT + 14;
-const intro = { nodes: [], timers: [] };
+// 서곡 앞 인트로(건물 밖에서 천천히 다가감): 실제 빅벤 녹음 — 1945년 1월 1일 자정 라디오 오라녜 중계(퍼블릭 도메인, 위키미디어 공용
+// "Westminster chimes (1 January 1945).wav")에서 시보 타종 세 번(원본 21~37초)과 웨스트민스터 차임(원본 0~20.7초)을 잘라 이어 붙임 → audio/bigben-intro.m4a
+// 타종 사이사이 영국 전래 동요 「Remember, remember the fifth of November」(퍼블릭 도메인) 낭독
+const OV_INTRO = 37.0, CHIME_AT = 16.3;   // 타종 0.3·4.4·8.55초, 차임 16.3초부터
+const RHYME = [[1.4, 'Remember, remember the fifth of November,', '기억하라, 기억하라, 11월 5일을'], [5.5, 'Gunpowder, treason and plot.', '화약과 반역과 음모를.'],
+  [9.6, 'I see no reason why gunpowder treason', '화약 반역 사건이'], [12.6, 'should ever be forgot.', '잊혀야 할 까닭은 하나도 없다.']];
+const intro = { el: null, timers: [] };
 let ttsVoice = null;
 function pickVoice(){ if (!('speechSynthesis' in window)) return; const vs = speechSynthesis.getVoices(); if (!vs.length) return;
   const gb = vs.filter(v => /en[-_]GB/i.test(v.lang)), fem = /female|serena|kate|stephanie|martha|libby|sonia|hazel|susan|fiona|moira|tessa|karen/i;
   ttsVoice = gb.find(v => fem.test(v.name)) || gb[0] || vs.find(v => /^en/i.test(v.lang) && fem.test(v.name)) || vs.find(v => /^en/i.test(v.lang)) || null; }
 if ('speechSynthesis' in window){ pickVoice(); speechSynthesis.addEventListener && speechSynthesis.addEventListener('voiceschanged', pickVoice); }
-function bell(at, f, gain, long = 1){   // 종: 배음이 어긋난 부분음들이 길게 울리며 사라짐 + 때리는 순간의 짧은 잡음
-  const out = actx.createGain(); out.gain.value = gain; out.connect(actx.destination);
-  for (const [r, g, dec] of [[0.5, 0.45, 6], [1, 1, 4.5], [1.19, 0.4, 3.4], [1.5, 0.3, 2.8], [2, 0.45, 2.4], [2.52, 0.2, 1.8], [3.01, 0.15, 1.4], [4.17, 0.08, 0.9]]){
-    const o = actx.createOscillator(), gg = actx.createGain(); o.type = 'sine'; o.frequency.value = f*r;
-    gg.gain.setValueAtTime(0.0001, at); gg.gain.linearRampToValueAtTime(g*0.3, at + 0.004); gg.gain.exponentialRampToValueAtTime(0.0001, at + dec*long);
-    o.connect(gg).connect(out); o.start(at); o.stop(at + dec*long + 0.05); intro.nodes.push(o); }
-  const ns = actx.createBufferSource(); ns.buffer = noiseBuf(0.06, x => 1 - x); const hp = actx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2500;
-  const ng = actx.createGain(); ng.gain.value = 0.1; ns.connect(hp).connect(ng).connect(out); ns.start(at); intro.nodes.push(ns);
-}
 function startIntro(){
   stopIntro();
-  if (!actx || window.__fake) return;
-  const t0 = actx.currentTime + 0.1;
-  for (const at of DONG) bell(t0 + at, midiHz(40), 0.8, 1.5);   // 뎅—뎅—뎅—
-  let t = t0 + CHIME_AT;   // 웨스트민스터 차임
-  for (const ph of CHIME){ ph.forEach((m, i) => { bell(t, midiHz(m), 0.42, 0.8); t += i < 3 ? CN : CL; }); t += 0.35; }
-  // 낭독 밑에 깔리는 낮은 울림
-  const ra = t0 + RHYME_AT - 1, rb = t0 + OV_INTRO;
-  const dr = actx.createGain(); dr.gain.setValueAtTime(0.0001, ra); dr.gain.linearRampToValueAtTime(0.06, ra + 2); dr.gain.setValueAtTime(0.06, rb - 1.5); dr.gain.linearRampToValueAtTime(0.0001, rb); dr.connect(actx.destination);
-  for (const f of [55, 82.4, 110.3]){ const o = actx.createOscillator(); o.type = 'sine'; o.frequency.value = f; o.connect(dr); o.start(ra); o.stop(rb + 0.1); intro.nodes.push(o); }
+  if (window.__fake) return;
+  if (!intro.el){ intro.el = new Audio('audio/bigben-intro.m4a'); intro.el.preload = 'auto'; }
+  intro.el.currentTime = 0; const p = intro.el.play(); if (p && p.catch) p.catch(() => {});
   if ('speechSynthesis' in window){
     if (!ttsVoice) pickVoice();
     for (const [at, line] of RHYME) intro.timers.push(setTimeout(() => { const u = new SpeechSynthesisUtterance(line); u.lang = 'en-GB'; if (ttsVoice) u.voice = ttsVoice; u.rate = 0.88; u.pitch = 1; u.volume = 1; speechSynthesis.speak(u); }, at*1000));
   }
 }
-function skipIntro(){ if (!(S.ov && S.stage === 'count' && S.clock < 0)) return; stopIntro(); S.clock = 0; }
 function stopIntro(){
   for (const id of intro.timers) clearTimeout(id); intro.timers = [];
   if ('speechSynthesis' in window) speechSynthesis.cancel();
-  if (actx) for (const n of intro.nodes){ try { n.stop(); } catch (e) {} }
-  intro.nodes = [];
+  if (intro.el){ try { intro.el.pause(); } catch (e) {} }
 }
+function skipIntro(){ if (!(S.ov && S.stage === 'count' && S.clock < 0)) return; stopIntro(); S.clock = 0; }
 const ovPlaying = () => OV.el && !OV.el.paused && OV.el.currentTime > 0;
 function cannonHit(hit){
   S.total++;
@@ -1745,7 +1726,8 @@ function update(dt){
   if (S.ov){ S.match = S.lv > 0.3 ? 0.85 : 0.1; S.cents = null; }
 
   if (S.ov && !S.ended){   // 1812 서곡: 녹음 재생 시각이 곧 시계, 대포가 터지는 순간 함성이 크면 명중
-    if (S.stage === 'count'){ S.clock += dt;
+    if (S.stage === 'count'){
+      if (S.clock < 0 && intro.el && !intro.el.paused && intro.el.currentTime > 0) S.clock = Math.min(-0.001, intro.el.currentTime - OV_INTRO); else S.clock += dt;
       if (S.dolly && view === 'out' && S.clock < 0){ const k = clamp((S.clock + OV_INTRO)/OV_INTRO, 0, 1), e = k*k*(3 - 2*k); camera.position.lerpVectors(S.dolly.from, S.dolly.to, e); }
       if (S.clock >= 0 && !S.ovGo){ S.ovGo = true; S.dolly = null; ovStart(); }
       if (S.ovGo && (ovPlaying() || OV.failed || window.__fake)){ S.stage = 'scream'; S.clock = 0; } }
@@ -1857,7 +1839,7 @@ function drawCannons(g, W, H){   // 1812: 오른쪽에서 대포 표시가 흘�
 function drawRoll(){   // 노래방식 음정 띠: 오른쪽에서 음표 막대가 흘러와 세로선(지금)을 지나감, 내 음은 점과 꼬리
   const cv = $('roll'); cv.hidden = !(S.song || S.ov) || S.stage === 'idle';
   if (cv.hidden || (S.ov && !(S.stage === 'count' && S.clock < 0))) $('lyricBig').hidden = true;
-  else if (S.ov){ const it = S.clock + OV_INTRO; let k = -1; RHYME.forEach((r, i) => { if (it >= r[0]) k = i; }); 
+  else if (S.ov){ const it = S.clock + OV_INTRO; let k = -1; RHYME.forEach((r, i) => { if (it >= r[0]) k = i; }); if (it > CHIME_AT + 1.5) k = -1; 
     const bg = $('lyricBig'); bg.hidden = k < 0; const key = 'rh' + k;
     if (k >= 0 && bg.dataset.k !== key){ bg.dataset.k = key; $('lyDe').textContent = RHYME[k][1]; $('lyKo').textContent = RHYME[k][2]; $('lyNext').textContent = k + 1 < RHYME.length ? RHYME[k + 1][1] : ''; } }
   if (cv.hidden) return;
@@ -1916,7 +1898,7 @@ function hud(){
     $('clockTxt').textContent = S.ov ? (S.clock < 0 ? '00:00' : fmt(S.clock) + ' / ' + fmt(OV_END)) : S.song ? fmt(Math.max(0, S.clock)) + ' / ' + fmt(SONG_END) : fmtClock(S.clock);
     clk.classList.toggle('live', S.stage === 'scream' && !S.ended);
     $('clockSub').textContent = S.ended ? '학생들은 모두 광장으로 빠져나왔습니다'
-      : S.ov && S.stage === 'count' ? (S.clock < 0 ? (S.clock + OV_INTRO < CHIME_AT ? '11월 5일 자정' : S.clock + OV_INTRO < RHYME_AT ? '웨스트민스터 차임' : 'Remember, remember…') : '해병대 군악대 녹음을 불러오는 중')
+      : S.ov && S.stage === 'count' ? (S.clock < 0 ? (S.clock + OV_INTRO < CHIME_AT ? '빅벤이 울립니다' : '웨스트민스터 차임') : '해병대 군악대 녹음을 불러오는 중')
       : S.ov && S.stage === 'scream' ? `가면 쓴 ${crowd.n}명이 함께 외치는 중 · 대포 ${S.ci} / ${CANNONS.length}`
       : S.songId === 'kaiser' && S.stage === 'scream' ? `${crowd.n}명 중 ${Math.round(S.sync*crowd.n)}명이 함께 부르는 중`
       : S.song && S.stage === 'count' ? '번스타인·런던 심포니 녹음을 불러오는 중'
@@ -1927,7 +1909,7 @@ function hud(){
   let msg = '';
   if (S.ov){
     const dtc = S.ci < CANNONS.length ? CANNONS[S.ci] - S.clock : null;
-    if (S.stage === 'count') msg = S.clock < 0 ? `낭독이 끝나면 서곡이 시작됩니다 (${Math.ceil(-S.clock)}초)` : '곧 시작합니다.';
+    if (S.stage === 'count') msg = S.clock < 0 ? `차임이 끝나면 서곡이 시작됩니다 (${Math.ceil(-S.clock)}초)` : '곧 시작합니다.';
     else if (S.ended) msg = '';
     else if (simT - S.lastHit < 0.9) msg = '명중! 건물이 크게 흔들립니다.';
     else if (dtc !== null && dtc <= 1.0 && dtc > -0.4) msg = '지금! 크게!';
@@ -2035,7 +2017,7 @@ window.__step = n => { for (let i=0;i<n;i++) update(1/60); render(); hud();
   return { I: S.I, A: S.A, stage: S.stage, clock: S.clock, sync: S.sync, ended: S.ended, crowd: crowd.n, camY: +camera.position.y.toFixed(2), fixed: pieces.filter(p => p.state === 'fix').length, total: pieces.length }; };
 window.__begin = begin; window.__campus = selectCampus; window.__tgt = () => targetHz();
 window.__kaiserTest = () => { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); const f = window.__fake; window.__fake = null; startKaiser(3); window.__fake = f; const r = guide ? { nodes: guide.nodes.length, t0: +(guide.t0 - actx.currentTime).toFixed(2), notes: KAISER.notes.length, chords: KAISER.chords.length, end: +KAISER.end.toFixed(1) } : null; stopGuide(); return r; };
-window.__introTest = () => { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); const f = window.__fake; window.__fake = null; startIntro(); window.__fake = f; const r = { nodes: intro.nodes.length, timers: intro.timers.length, tts: 'speechSynthesis' in window }; stopIntro(); return r; };
+window.__introTest = () => { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); const f = window.__fake; window.__fake = null; startIntro(); window.__fake = f; const r = { audio: !!intro.el, src: intro.el && intro.el.src, timers: intro.timers.length, tts: 'speechSynthesis' in window }; stopIntro(); return r; };
 window.__songT = t => { yt.ok = false; S.clock = t; }; window.__guideTest = () => { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); const f = window.__fake; window.__fake = null; startGuide(4.2); window.__fake = f; const r = guide ? { nodes: guide.nodes.length, t0: +(guide.t0 - actx.currentTime).toFixed(2), state: actx.state } : null; stopGuide(); return r; };
 window.__camAt = (x, y, z, tx, ty, tz) => { setView('out'); camera.position.set(x, y, z); controls.target.set(tx, ty, tz); controls.update(); render(); };
 window.__look = (x, y, z) => { const p = camera.position; controls.target.set(p.x + (x - p.x)*0.01, p.y + (y - p.y)*0.01, p.z + (z - p.z)*0.01); controls.update(); render(); };
