@@ -1226,6 +1226,7 @@ const inPos = () => { const H = holeSpec(); return new THREE.Vector3(MAIN.cx + H
 const inLook = () => { const H = holeSpec(); return new THREE.Vector3(MAIN.cx + H.dx - H.a*0.3, eyeY(2) + 2.5, MAIN.cz + H.dz - H.b*0.3); };
 let view = 'out', fly = null, inFloor = 2, jumpY = 0, jumpV = 0;
 function outControls(){ Object.assign(controls, { enableZoom: true, minDistance: 40, maxDistance: 360, minPolarAngle: 0, maxPolarAngle: 1.47, rotateSpeed: 1 }); }
+const easeApproach = k => 1 - Math.pow(1 - k, 1.6);   // 처음부터 일정하게 다가가다가 끝에서만 부드럽게 멈춤
 function farOut(){ const p = new THREE.Vector3(...C.out.pos), t = new THREE.Vector3(...C.out.target); return p.clone().add(p.clone().sub(t).multiplyScalar(2.3)); }
 function startApproach(){ if (!C.approach || view !== 'out') return; const to = camera.position.clone(), from = farOut(); camera.position.copy(from); controls.update(); appr = { from, to, t: 0, dur: 6.5 }; }
 function setView(v){
@@ -1819,7 +1820,7 @@ function update(dt){
   if (S.ov){   // 1812 서곡 (무너진 뒤에도 끝까지 흐름): 녹음 재생 시각이 곧 시계, 대포가 터지는 순간 함성이 크면 명중
     if (S.stage === 'count'){
       if (S.clock < 0 && intro.el && !intro.el.paused && intro.el.currentTime > 0) S.clock = Math.min(-0.001, intro.el.currentTime - OV_INTRO); else S.clock += dt;
-      if (S.dolly && view === 'out' && S.clock < 0){ const k = clamp((S.clock + OV_INTRO)/OV_INTRO, 0, 1), e = k*k*(3 - 2*k); camera.position.lerpVectors(S.dolly.from, S.dolly.to, e); }
+      if (S.dolly && view === 'out' && S.clock < 0){ const k = clamp((S.clock + OV_INTRO)/OV_INTRO, 0, 1); camera.position.lerpVectors(S.dolly.from, S.dolly.to, easeApproach(k)); }
       if (S.clock >= 0 && !S.ovGo){ S.ovGo = true; S.dolly = null; ovStart(); }
       if (S.ovGo && (ovPlaying() || OV.failed || window.__fake)){ S.stage = 'scream'; S.clock = 0; } }
     if (S.stage === 'scream'){
@@ -2123,7 +2124,7 @@ function begin(mode){
     ensureYT().then(p => { if (r !== round) return; p.loadVideoById({ videoId: YT_ID, startSeconds: 0 }); p.unMute(); p.setVolume(100); })
       .catch(() => { if (r !== round) return; $('ytWrap').hidden = true; startGuide(0.5); }); }
   else $('ytWrap').hidden = true;
-  if (S.ov){ S.clock = -OV_INTRO; S.ovGo = false; startIntro(); const to = camera.position.clone().lerp(controls.target, C.approach ? 0.15 : 0.42); S.dolly = { from: C.approach ? farOut() : camera.position.clone(), to }; }
+  if (S.ov){ appr = null; S.clock = -OV_INTRO; S.ovGo = false; startIntro(); const to = camera.position.clone().lerp(controls.target, C.approach ? 0.15 : 0.42); S.dolly = { from: C.approach ? farOut() : camera.position.clone(), to }; }
   else if (view === 'out') startApproach();
 }
 async function onStart(mode){
@@ -2153,7 +2154,7 @@ selectCampus('postech');
 let last = performance.now();
 renderer.setAnimationLoop(now => {
   let dt = Math.min(0.05, (now - last)/1000); last = now;
-  if (appr && view === 'out' && !fly){ appr.t += dt; const k = smooth(appr.t/appr.dur); camera.position.lerpVectors(appr.from, appr.to, k); if (k >= 1) appr = null; }
+  if (appr && view === 'out' && !fly){ appr.t += dt; const k = clamp(appr.t/appr.dur, 0, 1); camera.position.lerpVectors(appr.from, appr.to, easeApproach(k)); if (k >= 1) appr = null; }
   if (S.slowmo > 0){ S.slowmo -= dt; dt *= 0.28; }   // 무너지는 순간 1.5초 슬로모션
   update(dt); render(); hud();
 });
