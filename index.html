@@ -169,6 +169,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
     <div class="btns">
       <button id="againBtn">다시 세우기</button>
       <button id="pickBtn" class="second">다른 학교 고르기</button>
+      <button id="moreBtn" class="second" hidden>계속 부수기</button>
       <button id="shotBtn" class="second">결과 이미지 저장</button>
     </div>
   </div>
@@ -1322,7 +1323,7 @@ function jumpStep(dt){
 function reset(){
   buildLibrary(); shards.clear(); books.clear();
   for (const d of dusts){ d.max = 0; d.sp.visible = false; }
-  Object.assign(S, { ended:false, I:100, A:0, elapsed:0, resT:0, peak:0, maxFollow:0, shake:0, flash:0, sync:0, clock:-10, f0: Math.round(rnd(165, 245)), nj: 0, samp: [], songT0: -99, hzBuf: [], hits: 0, total: 0, lastHit: -9, loop: 0, hitSet: new Set(), trail: [], ci: 0, cpk: 0, fwT: 0, cres: [], fevT: 0, fevGrace: 0, fever: false, fevTotal: 0, peakDb: 0, slowmo: 0 });
+  Object.assign(S, { ended:false, I:100, A:0, elapsed:0, resT:0, peak:0, maxFollow:0, shake:0, flash:0, sync:0, clock:-10, f0: Math.round(rnd(165, 245)), nj: 0, samp: [], songT0: -99, hzBuf: [], hits: 0, total: 0, lastHit: -9, loop: 0, hitSet: new Set(), trail: [], ci: 0, cpk: 0, fwT: 0, cres: [], fevT: 0, fevGrace: 0, fever: false, fevTotal: 0, peakDb: 0, slowmo: 0, after: 0, afterLv: 1, postAcc: 0, spread: 0 });
   FW.clear();
   M.floor.emissiveIntensity = 0.3; M.shelf.emissiveIntensity = 0.4; M.ceil.emissiveIntensity = 0.55;
   boomLight.intensity = 0;
@@ -1437,11 +1438,11 @@ function ovStop(){ if (OV.el){ try { OV.el.pause(); } catch (e) {} } stopIntro()
 // 서곡 앞 인트로(건물 밖에서 천천히 다가감): 실제 빅벤 녹음 — 1945년 1월 1일 자정 라디오 오라녜 중계(퍼블릭 도메인, 위키미디어 공용
 // "Westminster chimes (1 January 1945).wav")에서 시보 타종 세 번(원본 21~37초)과 웨스트민스터 차임(원본 0~20.7초)을 잘라 이어 붙임 → audio/bigben-intro.m4a
 // 타종 사이사이 영국 전래 동요 「Remember, remember the fifth of November」(퍼블릭 도메인) 낭독
-const OV_INTRO = 39.4, CHIME_AT = 18.7;   // 타종 0.3·4.4·8.55초, 2.4초 쉼, 차임 18.7초부터
+const OV_INTRO = 40.8, CHIME_AT = 20.1;   // 타종 0.3·4.4·8.55초, 3.8초 쉼, 차임 20.1초부터
 // 자막: 전래 동요 네 줄(퍼블릭 도메인). V_AT = 영상에서 그 줄을 말하기 시작하는 초(소리 분석), at = 인트로 시각(유튜브를 못 쓸 때 낭독·자막 기준)
 const RHYME = [[6.2, 'Remember, remember, the fifth of November,', '기억하라, 기억하라, 11월 5일을', 39.6], [9.0, 'the gunpowder treason and plot.', '화약 반역과 음모를.', 42.4],
   [13.4, 'I know of no reason why the gunpowder treason', '화약 반역 사건이', 46.8], [15.8, 'should ever be forgot.', '잊혀야 할 까닭은 하나도 없다.', 49.2]];
-const RHYME_END = 18.3, V_END = 51.4;
+const RHYME_END = 19.6, V_END = 53.2;   // 마지막 단어 forgot까지 들리게
 const intro = { el: null, timers: [] };
 let ttsVoice = null;
 function pickVoice(){ if (!('speechSynthesis' in window)) return; const vs = speechSynthesis.getVoices(); if (!vs.length) return;
@@ -1484,7 +1485,8 @@ const ovPlaying = () => OV.el && !OV.el.paused && OV.el.currentTime > 0;
 function cannonHit(hit){
   S.total++;
   S.shake = Math.max(S.shake, hit ? 1.3 : 0.45); boomLight.position.copy(BC); boomLight.intensity = Math.max(boomLight.intensity, hit ? 2500 : 700);
-  if (!hit || S.ended) return;
+  if (!hit) return;
+  if (S.ended){ S.hits++; S.lastHit = simT; aftershock(1.6 + 0.04*(S.cpkDb || 0)); return; }   // 무너진 뒤 대포 명중 = 큰 추가 폭발
   S.hits++; S.lastHit = simT; S.flash = Math.max(S.flash, 0.3); S.A = Math.min(1.4, S.A + 0.25); S.I -= (2 + 0.8*(S.cpkDb || 0))*(S.fever ? 1.3 : 1);   // 대포 순간 문턱을 넘은 크기에 비례
   const c = pieces.filter(p => p.glass && !p.shattered && alive(p));
   for (let k=0; k<6 && c.length; k++){ const pc = c.splice(Math.floor(Math.random()*c.length), 1)[0]; pc.crack = 1; pc.glass.material = pc.crackMat; shatter(pc); }
@@ -1518,6 +1520,7 @@ function judgeNote(i){   // 음표 하나가 끝난 뒤: 그 음을 넉넉히 �
   S.total++;
   if (ok < Math.min(0.35*(n.t1 - n.t0), 1.2)) return;
   S.hits++; S.hitSet.add(i); S.lastHit = simT; S.A = Math.min(1.4, S.A + 0.1);
+  if (S.ended){ aftershock(1.2); return; }
   const c = pieces.filter(p => p.glass && !p.shattered && alive(p));
   for (let k=0; k<3 && c.length; k++){ const pc = c.splice(Math.floor(Math.random()*c.length), 1)[0]; pc.crack = 1; pc.glass.material = pc.crackMat; shatter(pc); }
 }
@@ -1612,7 +1615,7 @@ function explode(){
   if (S.ov){ FW.sky(7); S.fwT = 0; S.fwUntil = simT + Math.max(8, OV_END - 2 - S.clock); }
   if (view === 'in'){ launchCamera(); S.flash = 0.6; }
   boom();
-  const r = round; setTimeout(() => showResult('down', r), S.ov ? 15000 : 4800);
+  if (!(S.mode === 'scream')){ const r = round; setTimeout(() => showResult('down', r), 4800); }   // 시간·곡이 있는 모드는 끝날 때 결과
 }
 
 /* ================= 소리 ================= */
@@ -1652,12 +1655,29 @@ function readVoice(){
 }
 function noiseBuf(sec, shape){ const len = Math.floor(actx.sampleRate*sec), b = actx.createBuffer(1, len, actx.sampleRate), d = b.getChannelData(0);
   for (let i=0;i<len;i++) d[i] = (Math.random()*2 - 1)*(shape ? shape(i/len) : 1); return b; }
-function boom(){
+const POST_Q = 4.5;   // 무너진 뒤 추가 폭발 한 번에 필요한 '문턱 위 dB·초' 면적
+function aftershock(pw = 1){   // 잔해 더미 한 곳에서 폭발: 폭발 5번마다 단계(Lv)가 올라 반경·위력이 커짐
+  S.after++; const lv = 1 + Math.floor(S.after/5); S.afterLv = lv;
+  const rest = pieces.filter(p => p.state !== 'fix'); if (!rest.length) return;
+  const near = rest.filter(p => tv.set(p.obj.position.x - BC.x, 0, p.obj.position.z - BC.z).length() < 70);
+  const src = (near.length ? near : rest)[Math.floor(Math.random()*(near.length || rest.length))].obj.position, c = new THREE.Vector3(src.x, Math.max(src.y, groundH(src.x, src.z) + 1), src.z);
+  const R = (10 + 3*lv)*Math.sqrt(pw), str = (9 + 2.5*lv)*pw;
+  for (const p of rest){ const d = tv.copy(p.obj.position).sub(c), dist = d.length(); if (dist > R) continue;
+    const f = 1 - dist/R; d.y = 0; if (d.lengthSq() < 1e-4) d.set(rnd(-1, 1), 0, rnd(-1, 1)); d.normalize();
+    p.state = 'fall'; p.v.x += d.x*str*f*rnd(0.6, 1.2); p.v.z += d.z*str*f*rnd(0.6, 1.2); p.v.y += str*f*rnd(0.7, 1.3); p.w.set(rnd(-3, 3), rnd(-2, 2), rnd(-3, 3)); }
+  for (let i=0;i<4 + lv;i++) puff(c.x + rnd(-R, R)*0.4, c.y, c.z + rnd(-R, R)*0.4, rnd(5, 9 + lv));
+  for (let i=0;i<Math.round(50*pw);i++) shards.emit(c.x, c.y + 1, c.z, rnd(-1, 1)*str, rnd(0.4, 1.2)*str, rnd(-1, 1)*str, rnd(4, 7));
+  boomLight.position.set(c.x, c.y + 4, c.z); boomLight.intensity = Math.max(boomLight.intensity, 2500*pw);
+  S.shake = Math.max(S.shake, 0.5 + 0.12*lv*pw); S.flash = Math.max(S.flash, 0.12*pw); boom(0.45 + 0.25*pw);
+  if (S.ov) FW.sky(1);
+  S.spread = pieces.filter(p => tv.set(p.obj.position.x - BC.x, 0, p.obj.position.z - BC.z).length() > 55).length/pieces.length;
+}
+function boom(gain = 1.4){
   if (!actx) return;
   const t = actx.currentTime, src = actx.createBufferSource(); src.buffer = noiseBuf(3, x => Math.pow(1 - x, 2.2));
   const lp = actx.createBiquadFilter(); lp.type = 'lowpass';
   lp.frequency.setValueAtTime(1300, t); lp.frequency.exponentialRampToValueAtTime(60, t + 2.6);
-  const g = actx.createGain(); g.gain.value = 1.4;
+  const g = actx.createGain(); g.gain.value = gain;
   src.connect(lp).connect(g).connect(actx.destination); src.start();
 }
 let guide = null;
@@ -1764,7 +1784,7 @@ function update(dt){
   if (S.hz > 0){ let d = 1200*Math.log2(S.hz/f); d = ((d % 1200) + 1800) % 1200 - 600; S.cents = d; S.match = Math.exp(-((d/(S.song ? 200 : 220))**2)); }
   if (S.ov){ S.match = S.lv > 0.3 ? 0.85 : 0.1; S.cents = null; }
 
-  if (S.ov && !S.ended){   // 1812 서곡: 녹음 재생 시각이 곧 시계, 대포가 터지는 순간 함성이 크면 명중
+  if (S.ov){   // 1812 서곡 (무너진 뒤에도 끝까지 흐름): 녹음 재생 시각이 곧 시계, 대포가 터지는 순간 함성이 크면 명중
     if (S.stage === 'count'){
       if (S.clock < 0 && intro.el && !intro.el.paused && intro.el.currentTime > 0) S.clock = Math.min(-0.001, intro.el.currentTime - OV_INTRO); else S.clock += dt;
       if (S.dolly && view === 'out' && S.clock < 0){ const k = clamp((S.clock + OV_INTRO)/OV_INTRO, 0, 1), e = k*k*(3 - 2*k); camera.position.lerpVectors(S.dolly.from, S.dolly.to, e); }
@@ -1777,26 +1797,26 @@ function update(dt){
         if (S.clock >= c - 0.35){ S.cpk = Math.max(S.cpk, S.lv); S.cpkDb = Math.max(S.cpkDb || 0, Math.max(0, (S.dbfs ?? -99) - GATE_DB)); }
         if (S.clock >= c + 0.45){ S.cres[S.ci] = S.cpk >= CANNON_GATE; cannonHit(S.cpk >= CANNON_GATE); S.ci++; S.cpk = 0; S.cpkDb = 0; }
       }
-      if (S.clock >= OV_END && !S.ended){ S.stage = 'over'; const r = round; setTimeout(() => showResult('held', r), 800); }
+      if (S.clock >= OV_END){ S.stage = 'over'; const r = round, k = S.ended ? 'down' : 'held'; setTimeout(() => showResult(k, r), 800); }
     }
   }
   if (S.ov && S.ended && simT < S.fwUntil){ if ((S.fwT += dt) > 0.3){ S.fwT = 0; FW.sky(1); } }
   FW.update(dt);
-  if (S.song && !S.ended){   // 말러 합창: 녹음 재생 시각이 곧 시계
+  if (S.song){   // 노래: 녹음·연주 재생 시각이 곧 시계 (무너진 뒤에도 끝까지)
     ytTick();
     if (S.stage === 'count'){ if ((yt.ok && yt.playing) || guide || window.__fake){ S.stage = 'scream'; S.songT0 = songRaw() - 0.2; } }
     if (S.stage === 'scream'){ S.clock = window.__fake ? S.clock + dt : songRaw();
-      if (S.clock >= SONG_END){ S.stage = 'over'; const r = round; setTimeout(() => showResult('held', r), 1200); } }
+      if (S.clock >= SONG_END){ S.stage = 'over'; const r = round, k = S.ended ? 'down' : 'held'; setTimeout(() => showResult(k, r), 1200); } }
   }
-  if (S.mode === 'scream' && !S.ended && !S.song && !S.ov){
+  if (S.mode === 'scream' && !S.song && !S.ov){
     if (S.stage === 'count'){ S.clock += dt; if (S.clock >= 0){ S.clock = 0; S.stage = 'scream'; startCrowdAudio(30); } }
     else if (S.stage === 'scream'){ S.clock += dt;
-      if (S.clock >= 30){ S.clock = 30; S.stage = 'over'; stopCrowdAudio(); const r = round; setTimeout(() => showResult('held', r), 1200); } }
+      if (S.clock >= 30){ S.clock = 30; S.stage = 'over'; stopCrowdAudio(); const r = round, k = S.ended ? 'down' : 'held'; setTimeout(() => showResult(k, r), 1200); } }
   }
   const on = active();
   S.drive = on ? Math.sqrt(Math.max(0, (S.lv - GATE)/(1 - GATE))) : 0;   // 문턱(GATE) 아래 말소리로는 안 흔들리고, 넘으면 적당한 고함도 확실히 먹힘
   { const dbfs = v.db !== undefined ? v.db : v.level*45 - 55; S.dbfs = dbfs; S.spl = clamp(dbfs + 108, 30, 140);   // 대략적인 소리 크기(dB). 마이크마다 다름
-    S.splS = S.splS ? S.splS + (S.spl - S.splS)*Math.min(1, dt*(S.spl > S.splS ? 12 : 4)) : S.spl; if (on && S.splS > S.peakDb) S.peakDb = S.splS; }
+    S.splS = S.splS ? S.splS + (S.spl - S.splS)*Math.min(1, dt*(S.spl > S.splS ? 12 : 4)) : S.spl; if ((on || S.ended) && S.splS > S.peakDb) S.peakDb = S.splS; }
   // 피버: 문턱을 넉넉히 넘는 함성을(노래·공진 모드는 음까지 맞춰) 2.5초 버티면 피해 두 배, 끊겨도 0.8초는 봐줌
   if (on){ const good = S.drive > 0.3 && (S.ov || S.match > 0.6);
     if (good){ S.fevT += dt; S.fevGrace = 0.8; } else if ((S.fevGrace -= dt) <= 0) S.fevT = 0;
@@ -1811,11 +1831,15 @@ function update(dt){
   }
   S.A = clamp(S.A + (0.36*(S.drive*(0.4 + 1.6*S.match) + crowdTerm) - 0.6*S.A)*dt, 0, 1.4);
   S.phase += dt*Math.PI*2*1.1;
+  if (S.song && S.stage === 'scream'){   // 판정: 음표 앞 0.15초~뒤 0.25초 사이에 반음 안쪽으로 낸 시간이 음 길이의 35%를 넘으면 명중 (무너진 뒤에도 계속)
+    const t = songRaw(), my = S.hz > 0 && S.lv > GATE + 0.03 ? 69 + 12*Math.log2(S.hz/440) : null;
+    S.samp.push([t, my, dt]); while (S.samp.length && S.samp[0][0] < t - 12) S.samp.shift();
+    while (S.nj < NOTES.length && t > NOTES[S.nj].t1 + 0.25){ judgeNote(S.nj); S.nj++; } }
+  if (S.ended && S.stage !== 'idle'){   // 무너진 뒤: 문턱 위 dB 면적이 찰 때마다 잔해 더미에서 추가 폭발 (곡이 있으면 키포인트 명중이 주력)
+    const ex = Math.max(0, (S.dbfs ?? -99) - GATE_DB);
+    S.postAcc += DMG_K*ex*dt*(S.song || S.ov ? 0.5 : 1);
+    while (S.postAcc >= POST_Q){ S.postAcc -= POST_Q; aftershock(1); } }
   if (on){
-    if (S.song){   // 판정: 음표 앞 0.15초~뒤 0.25초 사이에 반음 안쪽으로 낸 시간이 음 길이의 35%를 넘으면 명중
-      const t = songRaw(), my = S.hz > 0 && S.drive > 0.1 ? 69 + 12*Math.log2(S.hz/440) : null;
-      S.samp.push([t, my, dt]); while (S.samp.length && S.samp[0][0] < t - 12) S.samp.shift();
-      while (S.nj < NOTES.length && t > NOTES[S.nj].t1 + 0.25){ judgeNote(S.nj); S.nj++; } }
     S.elapsed += dt; S.peak = Math.max(S.peak, S.lv);
     if (S.match > 0.6 && S.drive > 0.1) S.resT += dt;
     // 피해 = 문턱(GATE_DB) 위로 올라간 dB를 시간에 따라 쌓은 면적. 크게 외칠수록 비례해서 커지고, 문턱 아래는 0
@@ -1991,6 +2015,8 @@ function hud(){
     else if (S.match > .6) msg = I > 60 ? '그 음입니다. 다음 음으로 넘어가세요.' : I > 30 ? '외벽이 쏟아집니다. 끝까지 부르세요.' : '곧 무너집니다. 멈추지 마세요!';
     else msg = S.cents < 0 ? '조금 더 높게.' : '조금 더 낮게.';
   }
+  if (S.ended && S.stage !== 'idle') msg = `잔해 추가 폭발 ${S.after}회 · Lv.${S.afterLv} · 잔해 ${Math.round(S.spread*100)}% 날림 — ` +
+    (S.ov ? (S.ci < CANNONS.length ? '대포 순간에 외치면 크게 터집니다' : '계속 외치면 또 터집니다') : S.song ? '음을 맞히면 잔해가 터집니다' : '계속 외치면 또 터집니다');
   $('hint').textContent = msg;
 }
 
@@ -2017,6 +2043,8 @@ function showResult(kind, r){
   }
   if (rec) $('rLine').textContent += ' ' + rec;
   if (S.fevTotal > 0.5) $('rLine').textContent += ` 피버 ${Math.round(S.fevTotal)}초.`;
+  if (S.after) $('rLine').textContent += ` 잔해 추가 폭발 ${S.after}회(Lv.${S.afterLv}), 잔해 ${Math.round(S.spread*100)}% 날림.`;
+  $('moreBtn').hidden = !S.ended;
   $('result').hidden = false; $('againBtn').focus();
 }
 function saveRecord(kind){   // 캠퍼스·모드별 최단 붕괴 시간과 최고 함성 (이 브라우저에만 저장)
@@ -2084,6 +2112,7 @@ $('ovBtn').addEventListener('click', () => onStart('1812'));
 $('kaiserBtn').addEventListener('click', () => onStart('kaiser'));
 $('againBtn').addEventListener('click', () => { stopCrowdAudio(); $('result').hidden = true; begin(S.kind || S.mode); });
 $('shotBtn').addEventListener('click', saveShot);
+$('moreBtn').addEventListener('click', () => { $('result').hidden = true; });   // 결과를 닫고 계속 외쳐 잔해를 더 터뜨림
 $('pickBtn').addEventListener('click', () => { stopCrowdAudio(); $('result').hidden = true; S.stage = 'idle'; S.song = false; S.ov = false; $('ytWrap').hidden = true; $('lyricBig').hidden = true; round++; setSky('night'); reset(); setView('out'); $('intro').hidden = false; });
 
 selectCampus('postech');
