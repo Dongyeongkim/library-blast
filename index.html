@@ -133,6 +133,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
       <li>건물마다 잘 흔들리는 음높이(고유진동수)가 있습니다. 계기판의 목표 Hz에 맞춰 "아—" 하고 길게 외치세요. 한 옥타브 위나 아래도 됩니다.</li>
       <li>당신이 그 음을 붙잡고 있으면 난간의 학생들이 하나둘 같은 음으로 따라 외칩니다. 한 음으로 모일수록 진동이 빨리 쌓입니다.</li>
       <li>금이 갈수록 건물이 물러져 고유진동수가 내려갑니다. 음을 따라 내리세요.</li>
+      <li>제국 찬가: 오스트리아-헝가리 제국 찬가 「Gott erhalte, Gott beschütze」(하이든 선율, 1854년 가사)를 합창과 오르간 반주에 맞춰 부릅니다. 가사와 음정 띠가 말러 모드처럼 나오고, 마지막 "Innig bleibt mit Habsburgs Throne"부터 크게 흔들립니다.</li>
       <li>1812 서곡: 차이콥스키 「1812년 서곡」 피날레(미국 해병대 군악대 연주)가 흐르고, 가면을 쓴 학생들이 함께 외칩니다. 대포가 터지는 순간 크게 외치면 명중해 건물이 크게 부서지고, 마지막 일격도 대포가 칩니다. 무너지면 모두 광장으로 나와 불꽃놀이를 봅니다.</li>
       <li>말러 합창: 번스타인·런던 심포니 녹음(유튜브)을 틀어 놓고 교향곡 2번 「부활」의 마지막 합창을 같이 부릅니다. 가사가 화면에 뜨고, 아래 음정 띠에서 부를 음의 위치를 볼 수 있습니다. 맞힌 음마다 유리가 깨지고, "Aufersteh'n"부터 크게 흔들립니다. 녹음이 마이크에 섞이지 않게 이어폰을 끼세요.</li>
     </ul>
@@ -141,6 +142,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
       <button id="soloBtn" class="second">혼자 해보기</button>
       <button id="songBtn" class="second">말러 합창 따라 부르기</button>
       <button id="ovBtn" class="second">1812 서곡 가면 축제</button>
+      <button id="kaiserBtn" class="second">제국 찬가 따라 부르기</button>
     </div>
     <p class="err" id="err" hidden></p>
     <p class="note">혼자 해보기는 폐관 후 빈 건물에서 합니다. 소리는 이 브라우저 안에서만 분석하고 어디에도 보내지 않습니다. 건물은 사진을 보고 만든 근사 모형이라 비례와 층수, 내부는 실제와 다릅니다.</p>
@@ -1296,7 +1298,7 @@ function jumpStep(dt){
 function reset(){
   buildLibrary(); shards.clear(); books.clear();
   for (const d of dusts){ d.max = 0; d.sp.visible = false; }
-  Object.assign(S, { ended:false, I:100, A:0, elapsed:0, resT:0, peak:0, maxFollow:0, shake:0, flash:0, sync:0, clock:-10, f0: Math.round(rnd(165, 245)), ni: -1, nm: 0, nd: 0, hits: 0, total: 0, lastHit: -9, loop: 0, hitSet: new Set(), trail: [], ci: 0, cpk: 0, fwT: 0 });
+  Object.assign(S, { ended:false, I:100, A:0, elapsed:0, resT:0, peak:0, maxFollow:0, shake:0, flash:0, sync:0, clock:-10, f0: Math.round(rnd(165, 245)), ni: -1, nm: 0, nd: 0, hits: 0, total: 0, lastHit: -9, loop: 0, hitSet: new Set(), trail: [], ci: 0, cpk: 0, fwT: 0, cres: [] });
   FW.clear();
   M.floor.emissiveIntensity = 0.3; M.shelf.emissiveIntensity = 0.4; M.ceil.emissiveIntensity = 0.55;
   boomLight.intensity = 0;
@@ -1307,8 +1309,9 @@ function reset(){
 // 음표는 1897 Hofmeister 초판 총보(인터넷 아카이브 symphonieno200mahl)의 소프라노 파트에서 옮김: 47번(203쪽) "Sterben werd' ich" 두 번, 48번(204쪽) "Aufersteh'n".
 // 박자 위치는 녹음의 소프라노 음역(520~1100Hz) 음높이 흐름에서 음이 바뀌는 지점을 기준점으로 잡아 그 사이를 직선 보간.
 // 맨 앞 "werde ich entschweben"과 끝 "Was du geschlagen…"은 음표 없이 가사만 (자유롭게 부르는 구간).
-const YT_ID = 'FZEusNJLoRw', SONG_END = 114.5, SONG_KEY = 53.0;   // 48번 시작(이 앞은 피해가 덜 쌓임)
-const PHRASES = [
+const YT_ID = 'FZEusNJLoRw';
+let SONG_END = 114.5, SONG_KEY = 53.0;   // 지금 곡의 끝과 본 무대 시작(이 앞은 피해가 덜 쌓임). 말러는 48번
+const MAHLER_PHRASES = [
   [0.0, 20.0, '… werde ich entschweben, werde ich entschweben!', '… 날아오르리라, 날아오르리라!'],
   [20.0, 33.4, 'Sterben werd’ ich, um zu leben!', '살기 위해 나는 죽으리라!'],
   [33.4, 52.6, 'Sterben werd’ ich, um zu leben!', '살기 위해 나는 죽으리라!'],
@@ -1317,7 +1320,7 @@ const PHRASES = [
   [94.7, 104.5, 'Was du geschlagen, was du geschlagen,', '네가 싸워 얻은 것이, 네가 싸워 얻은 것이'],
   [104.5, SONG_END, 'zu Gott, zu Gott, zu Gott wird es dich tragen!', '하느님께로, 하느님께로 너를 데려가리라!'],
 ];
-const NOTES = (() => {
+const MAHLER_NOTES = (() => {
   const out = [];
   const place = (anchors, notes) => {   // notes: [midi(0=쉼), 박, 음절], anchors: [[박, 영상 초], …]
     const at = b => { for (let i=1;i<anchors.length;i++) if (b <= anchors[i][0]){ const [b0, t0] = anchors[i-1], [b1, t1] = anchors[i]; return t0 + (b - b0)/(b1 - b0)*(t1 - t0); } return anchors[anchors.length-1][1]; };
@@ -1335,6 +1338,67 @@ const NOTES = (() => {
      [77,2,'du,'],[75,2,'mein'],[82,2,'Herz,'],[79,2,'in'],[77,1,'ei'],[75,1,''],[74,1,'nem'],[75,1,''],[77,4,'Nu!']]);
   return out;
 })();
+let PHRASES = MAHLER_PHRASES, NOTES = MAHLER_NOTES;
+// 오스트리아-헝가리 제국 찬가 「Gott erhalte, Gott beschütze」: 하이든 선율(1797), 자이들 가사(1854~1918 사용) 1절. 마지막 두 줄 반복.
+// 선율은 영어 위키백과 "Gott erhalte Franz den Kaiser" 문서의 악보(사장조)에서 옮김. 화음은 그 선율에 맞춰 단순하게 붙여 브라우저가 직접 연주
+const KAISER = (() => {
+  const bpm = 84, bt = 60/bpm;
+  const L = [['Gott','er','hal','te,','Gott','be','schüt','ze'], ['un','sern','Kai','ser,','un','ser','Land!'],
+    ['Mäch','tig','durch','des','Glau','bens','Stüt','ze'], ['führ’','Er','uns','mit','wei','ser','Hand!'],
+    ['Laßt','uns','Sei','ner','Vä','ter','Kro','ne'], ['schir','men','wi','der','je','den','Feind;'],
+    ['In','nig','bleibt','mit','Habs','burgs','Thro','ne'], ['Ös','ter','reichs','Ge','schick','ver','eint.']];
+  const T = [['Gott erhalte, Gott beschütze', '신이여 지키소서, 신이여 보호하소서'], ['unsern Kaiser, unser Land!', '우리 황제와 우리 나라를!'],
+    ['Mächtig durch des Glaubens Stütze', '믿음을 버팀목 삼아 굳세게'], ['führ’ Er uns mit weiser Hand!', '지혜로운 손으로 우리를 이끄시기를!'],
+    ['Laßt uns Seiner Väter Krone', '그분 선조들의 왕관을'], ['schirmen wider jeden Feind;', '모든 적에 맞서 지켜 내자'],
+    ['Innig bleibt mit Habsburgs Throne', '합스부르크의 왕좌와 굳게 하나 되어'], ['Österreichs Geschick vereint.', '오스트리아의 운명은 함께하리라.']];
+  // [미디 음, 박, 음절 번호(-1은 앞 음절을 끄는 음)]  — s: 앞줄(8음절), t: 뒷줄(7음절)
+  const A = [[67,1.5,'s0'],[69,.5,'s1'],[71,1,'s2'],[69,1,'s3'],[72,1,'s4'],[71,1,'s5'],[69,.5,'s6'],[66,.5,''],[67,1,'s7'],[76,1,'t0'],[74,1,'t1'],[72,1,'t2'],[71,1,'t3'],[69,1,'t4'],[71,.5,'t5'],[67,.5,''],[74,2,'t6']];
+  const B = [[69,1,'s0'],[71,1,'s1'],[69,.5,'s2'],[66,.5,''],[62,1,'s3'],[72,1,'s4'],[71,1,'s5'],[69,.5,'s6'],[66,.5,''],[62,1,'s7'],[74,1,'t0'],[72,1,'t1'],[71,1.5,'t2'],[71,.5,'t3'],[73,1,'t4'],[73,.5,'t5'],[74,.5,''],[74,2,'t6']];
+  const C = [[79,1.5,'s0'],[78,.5,'s1'],[78,.5,'s2'],[76,.5,''],[74,1,'s3'],[76,1.5,'s4'],[74,.5,'s5'],[74,.5,'s6'],[72,.5,''],[71,1,'s7'],[69,1.5,'t0'],[71,.25,'t1'],[72,.25,''],[74,.5,'t2'],[76,.5,''],[72,.5,'t3'],[69,.5,''],[67,1,'t4'],[69,.5,'t5'],[67,.5,''],[67,2,'t6']];
+  const CH = { G: [[55,59,62],43], D: [[57,62,66],38], C: [[55,60,64],36], D7: [[57,60,66],38], Bm: [[54,59,62],35], A7: [[55,61,64],33] };
+  const HA = ['G','G','G','D','C','G','D','G','C','G','C','G','D','G','D','D'];
+  const HB = ['D','G','D','D','D7','G','D','D','Bm','D7','G','G','A7','A7','D','D7'];
+  const HC = ['G','D','D','G','C','G','D7','G','D','D7','C','D7','G','D7','G','G'];
+  const plan = [[A, 0, 1, HA], [A, 2, 3, HA], [B, 4, 5, HB], [C, 6, 7, HC], [C, 6, 7, HC]];
+  const notes = [], phrases = [], chords = [];
+  let beat = 0;
+  for (const [mel, ls, lt, har] of plan){
+    let b = beat;
+    for (const [m, d, k] of mel){ const s = k ? L[k[0] === 's' ? ls : lt][+k.slice(1)] : ''; notes.push({ t0: b*bt, t1: (b + d)*bt - 0.04, m, s }); b += d; }
+    phrases.push([beat*bt, (beat + 8)*bt, T[ls][0], T[ls][1]], [(beat + 8)*bt, (beat + 16)*bt, T[lt][0], T[lt][1]]);
+    har.forEach((h, i) => { const last = chords[chords.length - 1]; if (last && last.h === h) last.t1 = (beat + i + 1)*bt; else chords.push({ h, t0: (beat + i)*bt, t1: (beat + i + 1)*bt }); });
+    beat += 16;
+  }
+  chords[chords.length - 1].t1 += 2*bt;   // 마지막 화음 여운
+  return { bpm, bt, notes, phrases, chords, CH, end: beat*bt + 1.6, key: 48*bt, intro: 4*bt };
+})();
+function useSong(id){
+  if (id === 'kaiser'){ NOTES = KAISER.notes; PHRASES = KAISER.phrases; SONG_END = KAISER.end; SONG_KEY = KAISER.key; }
+  else { NOTES = MAHLER_NOTES; PHRASES = MAHLER_PHRASES; SONG_END = 114.5; SONG_KEY = 53.0; }
+}
+function startKaiser(lead){   // 제국 찬가 연주: 합창 "아—"(소프라노 + 한 옥타브 아래) + 오르간 화음 + 베이스, 앞에 한 마디 전주와 박자 소리
+  if (!actx || window.__fake) return;
+  stopGuide();
+  const K = KAISER, t0 = actx.currentTime + lead, out = actx.createGain(); out.gain.value = 0.34; out.connect(actx.destination);
+  const nodes = [];
+  const formants = [[800, 6, 1], [1150, 7, 0.6], [2900, 9, 0.3]].map(([fq, Q, g0]) => { const f = actx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = fq; f.Q.value = Q;
+    const g = actx.createGain(); g.gain.value = g0*2.2; f.connect(g).connect(out); return f; });
+  const vib = actx.createOscillator(); vib.frequency.value = 5.2; vib.start(); nodes.push(vib);
+  const tone = (f, type, a, b, gv, dest, att = 0.05) => { const o = actx.createOscillator(), g = actx.createGain(); o.type = type; o.frequency.value = f;
+    g.gain.setValueAtTime(0.0001, a); g.gain.linearRampToValueAtTime(gv, a + att); g.gain.setValueAtTime(gv, Math.max(a + att + 0.01, b - 0.08)); g.gain.linearRampToValueAtTime(0.0001, b);
+    o.connect(g).connect(dest); o.start(a); o.stop(b + 0.02); nodes.push(o); return o; };
+  for (const n of K.notes){ const a = t0 + n.t0, b = t0 + n.t1;
+    for (const [mul, gv] of [[1, 0.5], [0.5, 0.3]]){ const f = midiHz(n.m)*mul, o = actx.createOscillator(), g = actx.createGain(), dv = actx.createGain();
+      o.type = 'sawtooth'; o.frequency.value = f; dv.gain.value = f*0.011; vib.connect(dv).connect(o.frequency);
+      g.gain.setValueAtTime(0.0001, a); g.gain.linearRampToValueAtTime(gv, a + 0.06); g.gain.setValueAtTime(gv*0.9, Math.max(a + 0.07, b - 0.08)); g.gain.linearRampToValueAtTime(0.0001, b);
+      o.connect(g); for (const fl of formants) g.connect(fl); o.start(a); o.stop(b + 0.02); nodes.push(o); } }
+  const organ = actx.createGain(); organ.gain.value = 0.55; organ.connect(out);
+  const play = (h, a, b) => { const [tri, bass] = K.CH[h]; for (const m of tri) tone(midiHz(m), 'triangle', a, b, 0.07, organ, 0.12); tone(midiHz(bass), 'sine', a, b, 0.22, organ, 0.04); tone(midiHz(bass + 12), 'triangle', a, b, 0.06, organ, 0.04); };
+  play('G', t0 - K.intro, t0);   // 전주 한 마디
+  for (const c of K.chords) play(c.h, t0 + c.t0, t0 + c.t1);
+  for (let k=1;k<=4;k++){ const a = t0 - k*K.bt; if (a < actx.currentTime) continue; tone(k === 4 ? 1500 : 1000, 'sine', a, a + 0.08, 0.25, out, 0.005); }
+  guide = { out, nodes, t0 };
+}
 // 1812 서곡: 차이콥스키, 미국 해병대 군악대 "The President's Own" 2019년 5월 26일 울프트랩 연주(미국 정부 저작물 = 퍼블릭 도메인, 위키미디어 공용).
 // 원본 650~731초(피날레)를 잘라 audio/1812-finale.m4a로. 대포 시각은 녹음 50ms 음량의 급상승(직전 0.5초 평균의 2.5배 이상)으로 뽑음
 const OV_END = 80.5, CANNONS = [31.2, 33.1, 35.65, 37.6, 39.35, 40.7, 42.2, 43.35, 45.7, 48.25, 50.75, 59.15, 60.4, 61.65, 62.9];
@@ -1362,6 +1426,7 @@ const midiHz = m => 440*Math.pow(2, (m - 69)/12);
 const hzName = hz => NOTE_NAME[((Math.round(69 + 12*Math.log2(hz/440)) % 12) + 12) % 12];
 function songRaw(){   // 노래 시각(초): 유튜브 녹음이 돌면 그 재생 시각, 아니면 합성 가이드의 오디오 시계, 그것도 없으면 게임 시계
   if (window.__fake) return S.clock;
+  if (S.songId === 'kaiser') return guide && actx ? actx.currentTime - guide.t0 : S.clock;
   if (yt.ok && yt.playing) return yt.t + (performance.now() - yt.at)/1000;
   if (yt.ok) return yt.t;
   if (guide && actx) return actx.currentTime - guide.t0;
@@ -1629,7 +1694,7 @@ function update(dt){
       const c = CANNONS[S.ci];
       if (c !== undefined){
         if (S.clock >= c - 0.35) S.cpk = Math.max(S.cpk, S.lv);
-        if (S.clock >= c + 0.45){ cannonHit(S.cpk >= 0.45); S.ci++; S.cpk = 0; }
+        if (S.clock >= c + 0.45){ S.cres[S.ci] = S.cpk >= 0.45; cannonHit(S.cpk >= 0.45); S.ci++; S.cpk = 0; }
       }
       if (S.clock >= OV_END && !S.ended){ S.stage = 'over'; const r = round; setTimeout(() => showResult('held', r), 800); }
     }
@@ -1663,7 +1728,7 @@ function update(dt){
       S.nd += dt; if (S.match > 0.6 && S.drive > 0.1 && ni >= 0) S.nm += dt; }
     S.elapsed += dt; S.peak = Math.max(S.peak, S.lv);
     if (S.match > 0.6 && S.drive > 0.1) S.resT += dt;
-    const over = S.A - 0.1; if (over > 0) S.I -= 6*Math.pow(over, 1.3)*dt*(S.song && S.clock < SONG_KEY ? 0.13 : S.ov ? 0.15 : 1);
+    const over = S.A - 0.1; if (over > 0) S.I -= 6*Math.pow(over, 1.3)*dt*(S.songId === 'kaiser' ? (S.clock < SONG_KEY ? 0.2 : 0.42) : S.song && S.clock < SONG_KEY ? 0.13 : S.ov ? 0.15 : 1);
     if (S.ov) S.I = Math.max(S.I, 4);   // 마지막 한 방은 대포가 친다
     progressDamage();
     if (S.I <= 0) explode();
@@ -1707,12 +1772,34 @@ function fmtClock(sec){
   if (sec < 0){ const s = Math.ceil(-sec); return '23:59:' + String(60 - s).padStart(2, '0'); }
   return '00:00:' + String(Math.floor(sec)).padStart(2, '0');
 }
+function drawCannons(g, W, H){   // 1812: 오른쪽에서 대포 표시가 흘러와 세로선(지금)에 닿을 때 크게 외치기. 아래 꼬리는 내 함성 크기
+  const t = Math.max(0, S.clock), nowX = W*0.24, pxs = (W - nowX)/8, top = 22, bot = H - 22, X = tt => nowX + (tt - t)*pxs, Y = v => bot - clamp(v, 0, 1)*(bot - top);
+  g.font = '13px system-ui, sans-serif'; g.textBaseline = 'middle';
+  const thr = Y(0.45); g.strokeStyle = 'rgba(255,255,255,.35)'; g.setLineDash([5, 5]); g.beginPath(); g.moveTo(0, thr); g.lineTo(W, thr); g.stroke(); g.setLineDash([]);
+  g.fillStyle = 'rgba(255,255,255,.55)'; g.fillText('이 선 위로', 6, thr - 9);
+  CANNONS.forEach((c, i) => { const x0 = X(c - 0.35), x1 = X(c + 0.45); if (x1 < 0 || x0 > W) return;
+    const res = S.cres[i], col = res === true ? '95,211,154' : res === false ? '235,110,90' : '255,210,120';
+    g.fillStyle = `rgba(${col},${res === undefined ? .22 : .16})`; g.fillRect(x0, top - 10, x1 - x0, bot - top + 10);
+    const x = X(c); g.fillStyle = `rgb(${col})`; g.beginPath(); g.arc(x, top - 2, 9, 0, Math.PI*2); g.fill();
+    g.fillStyle = '#1b1d24'; g.textAlign = 'center'; g.font = 'bold 11px system-ui, sans-serif'; g.fillText(String(i + 1), x, top - 2); g.textAlign = 'left'; g.font = '13px system-ui, sans-serif'; });
+  S.trail.push([t, S.lv]); while (S.trail.length && S.trail[0][0] < t - 2) S.trail.shift();
+  g.lineWidth = 3; g.lineCap = 'round'; g.strokeStyle = 'rgba(255,255,255,.85)'; g.beginPath();
+  S.trail.forEach(([tt, v], k) => { const x = X(tt), y = Y(v); if (k) g.lineTo(x, y); else g.moveTo(x, y); }); g.stroke();
+  g.strokeStyle = 'rgba(255,255,255,.5)'; g.lineWidth = 2; g.beginPath(); g.moveTo(nowX, 4); g.lineTo(nowX, bot); g.stroke();
+  g.fillStyle = S.lv >= 0.45 ? '#5fd39a' : '#f5a650'; g.beginPath(); g.arc(nowX, Y(S.lv), 7, 0, Math.PI*2); g.fill();
+  const nc = CANNONS[S.ci];
+  if (nc !== undefined && nc - t < 3.2 && nc - t > -0.4){ g.fillStyle = '#fff'; g.font = 'bold 22px system-ui, sans-serif'; g.textAlign = 'center'; g.fillText(nc - t > 0.6 ? String(Math.ceil(nc - t - 0.4)) : '지금!', X(nc), (top + bot)/2); g.textAlign = 'left'; }
+  else if (nc === undefined && !S.ended){ g.fillStyle = 'rgba(255,255,255,.6)'; g.textAlign = 'center'; g.fillText('대포가 다 터졌습니다', W/2, (top + bot)/2); g.textAlign = 'left'; }
+  else if (S.ci === 0 && nc - t >= 3.2){ g.fillStyle = 'rgba(255,255,255,.6)'; g.textAlign = 'center'; g.fillText(`첫 대포까지 ${Math.ceil(nc - t)}초 · 노란 표시가 세로선에 닿을 때 크게 외치세요`, W/2, (top + bot)/2); g.textAlign = 'left'; }
+}
 function drawRoll(){   // 노래방식 음정 띠: 오른쪽에서 음표 막대가 흘러와 세로선(지금)을 지나감, 내 음은 점과 꼬리
-  const cv = $('roll'); cv.hidden = !S.song || S.stage === 'idle';
-  if (cv.hidden){ $('lyricBig').hidden = true; return; }
+  const cv = $('roll'); cv.hidden = !(S.song || S.ov) || S.stage === 'idle';
+  if (cv.hidden || S.ov) $('lyricBig').hidden = true;
+  if (cv.hidden) return;
   const dpr = Math.min(2, window.devicePixelRatio || 1), W = cv.clientWidth, H = cv.clientHeight;
   if (cv.width !== Math.round(W*dpr) || cv.height !== Math.round(H*dpr)){ cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr); }
   const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+  if (S.ov){ drawCannons(g, W, H); return; }
   const t = songRaw(), nowX = W*0.24, pxs = (W - nowX)/7, lo = 61.5, hi = 83.5, top = 10, bot = H - 26;
   const Y = m => bot - (m - lo)/(hi - lo)*(bot - top), X = tt => nowX + (tt - t)*pxs;
   g.strokeStyle = 'rgba(255,255,255,.07)'; g.lineWidth = 1;
@@ -1765,6 +1852,7 @@ function hud(){
     $('clockSub').textContent = S.ended ? '학생들은 모두 광장으로 빠져나왔습니다'
       : S.ov && S.stage === 'count' ? '해병대 군악대 녹음을 불러오는 중'
       : S.ov && S.stage === 'scream' ? `가면 쓴 ${crowd.n}명이 함께 외치는 중 · 대포 ${S.ci} / ${CANNONS.length}`
+      : S.songId === 'kaiser' && S.stage === 'scream' ? `${crowd.n}명 중 ${Math.round(S.sync*crowd.n)}명이 함께 부르는 중`
       : S.song && S.stage === 'count' ? '번스타인·런던 심포니 녹음을 불러오는 중'
       : S.stage === 'count' ? '밤 12시가 되면 다 같이 30초 동안 외칩니다'
       : S.stage === 'scream' ? (S.song ? `${crowd.n}명 중 ${Math.round(S.sync*crowd.n)}명이 따라 부르는 중` : `남은 시간 ${Math.ceil(30 - S.clock)}초 · ${crowd.n}명 중 ${Math.round(S.sync*crowd.n)}명이 내 음을 따라 외치는 중`)
@@ -1790,7 +1878,8 @@ function hud(){
     else msg = S.cents < 0 ? '조금 더 높게.' : '조금 더 낮게.';
   }
   else if (active()){
-    if (curNote() < 0) msg = (S.clock < 20 || S.clock > 95) ? '녹음에 맞춰 자유롭게 부르세요.' : S.clock < SONG_KEY ? '다음 음을 준비하세요. 본 무대는 "Aufersteh’n"부터입니다.' : '숨 쉬세요.';
+    if (curNote() < 0 && S.songId === 'kaiser') msg = S.clock < 0 ? '전주가 끝나면 G "Gott"부터 부르세요.' : '숨 쉬세요.';
+    else if (curNote() < 0) msg = (S.clock < 20 || S.clock > 95) ? '녹음에 맞춰 자유롭게 부르세요.' : S.clock < SONG_KEY ? '다음 음을 준비하세요. 본 무대는 "Aufersteh’n"부터입니다.' : '숨 쉬세요.';
     else if (simT - S.lastHit < 0.8) msg = '맞았습니다! 유리가 깨집니다.';
     else if (S.lv < .22) msg = S.mode === 'scream' ? '같이 부르세요! 당신이 음을 맞혀야 사람들이 따라 부릅니다.' : '더 크게 부르세요.';
     else if (S.cents === null) msg = '가사에 맞춰 음을 길게 끌어 주세요.';
@@ -1818,7 +1907,7 @@ function showResult(kind, r){
   } else {
     if (S.ov) $('rLine').textContent = `가면을 쓴 ${crowd.n}명이 광장에 서서 불꽃놀이를 보고 있습니다. 대포 ${CANNONS.length}발 중 ${S.hits}발에 맞춰 외쳤습니다.`;
     else $('rLine').textContent = (scream ? `${crowd.n}명은 모두 광장으로 빠져나와 환호하고 있습니다. ` : '') +
-      (ratio > .6 ? (S.song ? '음을 거의 놓치지 않았습니다. 말러도 만족할 합창입니다.' : '음을 거의 놓치지 않았습니다. 교과서에 실릴 공진입니다.') : ratio > .3 ? '음이 몇 번 흔들렸지만 결국 건물이 먼저 졌습니다.' : '음보다 성량으로 밀어붙였습니다.');
+      (ratio > .6 ? (S.song ? (S.songId === 'kaiser' ? '음을 거의 놓치지 않았습니다. 하이든도 만족할 합창입니다.' : '음을 거의 놓치지 않았습니다. 말러도 만족할 합창입니다.') : '음을 거의 놓치지 않았습니다. 교과서에 실릴 공진입니다.') : ratio > .3 ? '음이 몇 번 흔들렸지만 결국 건물이 먼저 졌습니다.' : '음보다 성량으로 밀어붙였습니다.');
     $('againBtn').textContent = scream ? '다음 시험기간에 다시' : '다시 세우기';
   }
   $('result').hidden = false; $('againBtn').focus();
@@ -1834,13 +1923,15 @@ function selectCampus(k){
   buildSite(); S.mode = 'scream'; S.song = false; S.ov = false; S.stage = 'idle'; $('ytWrap').hidden = true; $('lyricBig').hidden = true; setSky('night'); reset(); setView('out');
 }
 function begin(mode){
-  S.kind = mode; S.song = mode === 'song'; S.ov = mode === '1812'; if (S.song || S.ov) mode = 'scream';
+  S.kind = mode; S.songId = mode === 'song' ? 'mahler' : mode === 'kaiser' ? 'kaiser' : null; S.song = !!S.songId; S.ov = mode === '1812'; if (S.song || S.ov) mode = 'scream';
+  if (S.song) useSong(S.songId);
   S.mode = mode; round++;
   setSky(mode === 'scream' ? 'night' : 'dusk');
   reset();
   if (mode === 'scream'){ S.stage = 'count'; setView('in'); }
   else { S.stage = 'scream'; setView('out'); }
-  if (S.song){ S.clock = 0; $('ytWrap').hidden = false; const r = round;
+  if (S.songId === 'kaiser'){ S.clock = -KAISER.intro; $('ytWrap').hidden = true; startKaiser(KAISER.intro + 0.3); }
+  else if (S.song){ S.clock = 0; $('ytWrap').hidden = false; const r = round;
     ensureYT().then(p => { if (r !== round) return; p.seekTo(0, true); p.unMute(); p.setVolume(100); p.playVideo(); })
       .catch(() => { if (r !== round) return; $('ytWrap').hidden = true; startGuide(0.5); }); }
   else $('ytWrap').hidden = true;
@@ -1862,6 +1953,7 @@ $('startBtn').addEventListener('click', () => onStart('scream'));
 $('soloBtn').addEventListener('click', () => onStart('solo'));
 $('songBtn').addEventListener('click', () => onStart('song'));
 $('ovBtn').addEventListener('click', () => onStart('1812'));
+$('kaiserBtn').addEventListener('click', () => onStart('kaiser'));
 $('againBtn').addEventListener('click', () => { stopCrowdAudio(); $('result').hidden = true; begin(S.kind || S.mode); });
 $('pickBtn').addEventListener('click', () => { stopCrowdAudio(); $('result').hidden = true; S.stage = 'idle'; S.song = false; S.ov = false; $('ytWrap').hidden = true; $('lyricBig').hidden = true; round++; setSky('night'); reset(); setView('out'); $('intro').hidden = false; });
 
@@ -1876,6 +1968,7 @@ renderer.setAnimationLoop(now => {
 window.__step = n => { for (let i=0;i<n;i++) update(1/60); render(); hud();
   return { I: S.I, A: S.A, stage: S.stage, clock: S.clock, sync: S.sync, ended: S.ended, crowd: crowd.n, camY: +camera.position.y.toFixed(2), fixed: pieces.filter(p => p.state === 'fix').length, total: pieces.length }; };
 window.__begin = begin; window.__campus = selectCampus; window.__tgt = () => targetHz();
+window.__kaiserTest = () => { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); const f = window.__fake; window.__fake = null; startKaiser(3); window.__fake = f; const r = guide ? { nodes: guide.nodes.length, t0: +(guide.t0 - actx.currentTime).toFixed(2), notes: KAISER.notes.length, chords: KAISER.chords.length, end: +KAISER.end.toFixed(1) } : null; stopGuide(); return r; };
 window.__songT = t => { yt.ok = false; S.clock = t; }; window.__guideTest = () => { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); const f = window.__fake; window.__fake = null; startGuide(4.2); window.__fake = f; const r = guide ? { nodes: guide.nodes.length, t0: +(guide.t0 - actx.currentTime).toFixed(2), state: actx.state } : null; stopGuide(); return r; };
 window.__camAt = (x, y, z, tx, ty, tz) => { setView('out'); camera.position.set(x, y, z); controls.target.set(tx, ty, tz); controls.update(); render(); };
 window.__look = (x, y, z) => { const p = camera.position; controls.target.set(p.x + (x - p.x)*0.01, p.y + (y - p.y)*0.01, p.z + (z - p.z)*0.01); controls.update(); render(); };
