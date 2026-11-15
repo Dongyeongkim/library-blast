@@ -1429,9 +1429,9 @@ function pickVoice(){ if (!('speechSynthesis' in window)) return; const vs = spe
   const tier = re => gb.find(v => re.test(v.name) && fem.test(v.name)) || gb.find(v => re.test(v.name)) || en.find(v => re.test(v.name));
   ttsVoice = tier(/premium/i) || tier(/enhanced/i) || tier(/google|natural|neural|online/i) || gb.find(v => fem.test(v.name)) || gb[0] || en[0] || null; }
 if ('speechSynthesis' in window){ pickVoice(); speechSynthesis.addEventListener && speechSynthesis.addEventListener('voiceschanged', pickVoice); }
-// 낭독: 영화 공식 예고편을 유튜브 공식 퍼가기 플레이어로 틀어 그 첫 대사를 들려줌(음원을 따로 떼어 쓰지 않음).
-// IGN 업로드 「V For Vendetta 20th Anniversary - Official Trailer (2026)」. TRAILER_AT = 대사가 시작되는 예고편 초 (확인되면 이 숫자만 고치면 됨)
-const TRAILER_ID = '4iW3f4Xu3Zw', TRAILER_AT = 0, TRAILER_LEN = 13.5, TRAILER_START = 0.6;   // 인트로 0.6초부터 13.5초 동안
+// 낭독: 사용자가 올린 유튜브 영상 「Remember Remember the 5th of November - V for Vendetta」의 34초부터를 유튜브 공식 퍼가기 플레이어로 재생
+// (음원을 따로 떼어 레포에 넣지 않음). TRAILER_AT = 영상에서 시작할 초, TRAILER_LEN = 틀 길이
+const TRAILER_ID = 'RS2HLC0sipA', TRAILER_AT = 34, TRAILER_LEN = 15, TRAILER_START = 0.6;   // 인트로 0.6초부터 15초 동안 (빅벤 타종이 뒤에 깔림)
 function speakRhyme(){   // 유튜브를 못 쓸 때만: 브라우저 음성으로 낭독
   if (!('speechSynthesis' in window)) return;
   if (!ttsVoice) pickVoice();

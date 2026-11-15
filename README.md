@@ -20,7 +20,7 @@ python3 -m http.server 4211
 
 - 음원: `audio/1812-finale.m4a` — Tchaikovsky, *1812 Overture*, "The President's Own" United States Marine Band, 2019년 5월 26일 울프트랩 연주. 미국 정부 저작물이라 퍼블릭 도메인 ([위키미디어 공용](https://commons.wikimedia.org/wiki/File:1812_Overture_-_United_States_Marine_Band.opus)). 원본 650~731초를 잘라 AAC로 변환.
 - 대포 시각은 녹음 음량의 급상승을 분석해 뽑았습니다. 화면 아래 띠에 대포 표시가 흘러와 세로선에 닿는 순간을 보여 줍니다.
-- 서곡 앞 37초 인트로: 건물 밖에서 천천히 다가가며 실제 빅벤 녹음이 나옵니다 — 1945년 1월 1일 자정 라디오 오라녜 중계(퍼블릭 도메인, [위키미디어 공용](https://commons.wikimedia.org/wiki/File:Westminster_chimes_(1_January_1945).wav))에서 시보 타종 세 번과 웨스트민스터 차임을 잘라 이은 `audio/bigben-intro.m4a`. 타종 사이에는 영화 공식 예고편(IGN 업로드 「V For Vendetta 20th Anniversary - Official Trailer」)을 유튜브 공식 퍼가기 플레이어로 틀어 첫 대사를 들려줍니다(음원을 따로 떼어 넣지 않음). 유튜브를 못 불러오면 영국 전래 동요 「Remember, remember the fifth of November」(퍼블릭 도메인)를 브라우저 음성으로 낭독합니다. "인트로 건너뛰기"로 바로 시작할 수 있고, 영화의 음성·음악은 쓰지 않습니다.
+- 서곡 앞 37초 인트로: 건물 밖에서 천천히 다가가며 실제 빅벤 녹음이 나옵니다 — 1945년 1월 1일 자정 라디오 오라녜 중계(퍼블릭 도메인, [위키미디어 공용](https://commons.wikimedia.org/wiki/File:Westminster_chimes_(1_January_1945).wav))에서 시보 타종 세 번과 웨스트민스터 차임을 잘라 이은 `audio/bigben-intro.m4a`. 타종 사이에는 유튜브 영상 「Remember Remember the 5th of November - V for Vendetta」(RS2HLC0sipA)의 34초부터 15초를 유튜브 공식 퍼가기 플레이어로 틀어 대사를 들려줍니다(음원을 따로 떼어 넣지 않음). 유튜브를 못 불러오면 영국 전래 동요 「Remember, remember the fifth of November」(퍼블릭 도메인)를 브라우저 음성으로 낭독합니다. "인트로 건너뛰기"로 바로 시작할 수 있고, 영화의 음성·음악은 쓰지 않습니다.
 - 가면은 실존 인물 가이 포크스의 캐리커처(흰 얼굴, 말린 콧수염, 뾰족한 턱수염)를 직접 단순하게 만든 것입니다.
 
 ## 제국 찬가 모드
