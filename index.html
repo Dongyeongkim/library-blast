@@ -962,7 +962,7 @@ function extrasKaist(){
       const [x, z] = K.P(u0, vC + dv), wall = new THREE.Mesh(pg, M.white); wall.position.set(x, 0, z); wall.rotation.y = LIBR; g.add(wall); }
     addPiece(g, { kind: 'stair' }); }
   // 5층: 직육면체 장밋빛 막대 (스카이뷰 실측 80×20.5m, 중심 (12.4, 9.2), 축은 거의 정남북). 남쪽 끝 두 칸은 통유리 너머 연회장
-  const L = 80, D = 20.5, H = 11, n = 8, rot = -1.688, w = L/n, CX = 12.4, CZ = 9.2, baseY = topY + 0.8;
+  const L = 80, D = 20.5, H = 5.5, n = 8, rot = -1.688, w = L/n, CX = 12.4, CZ = 9.2, baseY = topY + 0.8;
   const saw = new THREE.ExtrudeGeometry(new THREE.Shape([new THREE.Vector2(-w/6, 0), new THREE.Vector2(w/6, 0), new THREE.Vector2(w/6, 1.5)]), { depth: D - 0.4, bevelEnabled: false }); saw.translate(0, 0, -(D - 0.4)/2);
   // 남쪽 끝 두 칸(20m)은 연회장: 끝면 투명 통유리, 안쪽 양옆 삼각 나무 패널 벽, 따뜻한 우물 천장 조명, 청회색 카펫, 흰 원탁 (실내 사진 참고)
   const facetTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 256; const g2 = c.getContext('2d'), tones = ['#b9875a', '#a77649', '#c99a6c', '#946640'];
