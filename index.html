@@ -1016,7 +1016,7 @@ function buildLibrary(){
 }
 
 /* ================= 학생들 ================= */
-const CLOTH = [0x2b2f36,0x3d4452,0xe8e6e1,0x6b7280,0x1f3a5f,0x7a2e2e,0x2f4f3f,0xbfb6a8,0x111318,0x4a3f6b,0x8a8f98,0xd7c9a7];
+const CLOTH = [0x15161a,0x1c1d22,0x111214,0x23242a,0x18191d,0x2a2b31,0x141518,0x1f2025];   // 모두 어두운 망토
 const HAIR = [0x1d1815,0x2b2420,0x3a2d24,0x15120f];
 const CMAX = 900;
 const crowd = (() => {
@@ -1043,6 +1043,13 @@ const crowd = (() => {
     geo.scale(1.15, 1.15, 1.15);
     const m = new THREE.InstancedMesh(geo, [new THREE.MeshStandardMaterial({ color: 0xf1ead8, roughness: 0.55 }), new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.6 }), new THREE.MeshStandardMaterial({ color: 0xe48b8b, roughness: 0.6 })], CMAX);
     m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); m.frustumCulled = false; m.visible = false; scene.add(m); c.mask = m; }
+  { // 17세기 초 차림의 챙 넓은 검은 모자 (꼭대기가 살짝 좁은 높은 운두 + 넓은 챙 + 띠)
+    const brim = new THREE.CylinderGeometry(0.27, 0.27, 0.022, 20); brim.translate(0, 0.075, 0);
+    const crown = new THREE.CylinderGeometry(0.125, 0.15, 0.2, 16); crown.translate(0, 0.185, 0);
+    const band = new THREE.CylinderGeometry(0.152, 0.152, 0.035, 16); band.translate(0, 0.1, 0);
+    const geo = mergeGeometries([mergeGeometries([brim.toNonIndexed(), crown.toNonIndexed()]), band.toNonIndexed()], true);
+    const m = new THREE.InstancedMesh(geo, [new THREE.MeshStandardMaterial({ color: 0x101012, roughness: 0.75 }), new THREE.MeshStandardMaterial({ color: 0x2a2a2e, roughness: 0.5 })], CMAX);
+    m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); m.frustumCulled = false; m.castShadow = true; m.visible = false; scene.add(m); c.hat = m; }
   const col = new THREE.Color();
   for (let i=0;i<CMAX;i++){
     const cl = CLOTH[i % CLOTH.length], hr = HAIR[i % HAIR.length];
@@ -1086,14 +1093,14 @@ function finishPlace(P, where){
   P.forEach((p, i) => { p.rank = ranks[i]/P.length; p.armBase = rnd(0.15, 1.4); });
   crowd.p = P; crowd.n = P.length; crowd.where = where;
   for (const k of ['body','head','armL','armR']){ crowd[k].count = crowd.n; if (crowd[k].instanceColor) crowd[k].instanceColor.needsUpdate = true; }
-  crowd.mask.count = crowd.n;
+  crowd.mask.count = crowd.n; crowd.hat.count = crowd.n;
 }
 const cm = new THREE.Matrix4(), cm2 = new THREE.Matrix4(), cr = new THREE.Matrix4(), cq = new THREE.Quaternion(), cv3 = new THREE.Vector3(), ONE = new THREE.Vector3(1,1,1);
 const OFF_B = new THREE.Matrix4().makeTranslation(0, 0.71, 0), OFF_H = new THREE.Matrix4().makeTranslation(0, 1.58, 0);
 function updateCrowd(t){
   const show = S.mode === 'scream';
   for (const k of ['body','head','armL','armR']) crowd[k].visible = show;
-  crowd.mask.visible = show && !!S.ov;
+  crowd.mask.visible = show; crowd.hat.visible = show;   // 모든 모드에서 가면 + 모자
   if (!show) return;
   const screaming = S.stage === 'scream' && !S.ended;
   for (let i=0;i<crowd.n;i++){
@@ -1110,12 +1117,12 @@ function updateCrowd(t){
     cm.compose(cv3.set(x, p.y + bounce, z), cq, ONE);
     crowd.body.setMatrixAt(i, cm2.multiplyMatrices(cm, OFF_B));
     crowd.head.setMatrixAt(i, cm2.multiplyMatrices(cm, OFF_H));
-    if (S.ov) crowd.mask.setMatrixAt(i, cm2.multiplyMatrices(cm, OFF_H));
+    crowd.mask.setMatrixAt(i, cm2.multiplyMatrices(cm, OFF_H)); crowd.hat.setMatrixAt(i, cm2.multiplyMatrices(cm, OFF_H));
     cr.makeRotationZ(-arm); cr.setPosition(-0.26, 1.36, 0); crowd.armL.setMatrixAt(i, cm2.multiplyMatrices(cm, cr));
     cr.makeRotationZ(arm);  cr.setPosition(0.26, 1.36, 0);  crowd.armR.setMatrixAt(i, cm2.multiplyMatrices(cm, cr));
   }
   for (const k of ['body','head','armL','armR']) crowd[k].instanceMatrix.needsUpdate = true;
-  if (S.ov) crowd.mask.instanceMatrix.needsUpdate = true;
+  crowd.mask.instanceMatrix.needsUpdate = true; crowd.hat.instanceMatrix.needsUpdate = true;
 }
 
 /* ================= 불꽃놀이 ================= */
